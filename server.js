@@ -10,7 +10,7 @@ const wss = new WebSocketServer({ server });
 app.use(cors());
 app.use(express.json());
 
-// Queue state (no ticket numbers)
+// Counter availability state
 let queueState = {
   counters: Array.from({ length: 10 }, (_, i) => ({
     id: i + 1,

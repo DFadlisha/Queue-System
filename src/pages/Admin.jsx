@@ -13,10 +13,9 @@ export default function Admin() {
       servedCount: 0 // number of customers served at this counter
     }))
   );
-  // no global ticket numbers — system uses counters and servedCount
   const [connected, setConnected] = useState(false);
   const [stats, setStats] = useState({
-    totalTickets: 0,
+    totalServed: 0,
     activeCounters: 0,
     servedToday: 0
   });
@@ -36,7 +35,7 @@ export default function Admin() {
     const totalServed = counters.reduce((s, c) => s + (c.servedCount || 0), 0);
     setStats(prev => ({
       ...prev,
-      totalTickets: totalServed,
+      totalServed: totalServed,
       activeCounters: activeCount,
       servedToday: totalServed
     }));
@@ -67,7 +66,6 @@ export default function Admin() {
         case 'COUNTER_CLEARED':
           setCounters(message.data.counters.map(c => ({ ...c, servedCount: c.servedCount || 0 })));
           break;
-        // TICKET_ISSUED is deprecated (ticket dispenser removed)
         case 'SYSTEM_RESET':
           setCounters(message.data.counters.map(c => ({ ...c, servedCount: 0 })));
           break;
@@ -140,10 +138,10 @@ export default function Admin() {
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
           <div className="bg-white rounded-xl p-6 shadow-lg">
             <div className="flex items-center justify-between mb-2">
-              <h3 className="text-gray-600 font-semibold">Total Tickets</h3>
+              <h3 className="text-gray-600 font-semibold">Total Served</h3>
               <Activity className="text-blue-500" size={24} />
             </div>
-            <p className="text-4xl font-bold text-blue-600">{stats.totalTickets}</p>
+            <p className="text-4xl font-bold text-blue-600">{stats.totalServed}</p>
           </div>
           
           <div className="bg-white rounded-xl p-6 shadow-lg">
@@ -153,8 +151,6 @@ export default function Admin() {
             </div>
             <p className="text-4xl font-bold text-green-600">{stats.activeCounters}</p>
           </div>
-          
-          {/* Next Number removed — ticket dispenser disabled */}
           
           <div className="bg-white rounded-xl p-6 shadow-lg">
             <div className="flex items-center justify-between mb-2">

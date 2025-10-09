@@ -7,7 +7,6 @@ const WS_URL = `ws://${window.location.hostname}:3001`;
 export default function CounterPhone() {
   const [selectedCounter, setSelectedCounter] = useState(null);
   const [currentNumber, setCurrentNumber] = useState(0);
-  // no global ticket numbers
   const [connected, setConnected] = useState(false);
   const wsRef = useRef(null);
 
@@ -54,7 +53,6 @@ export default function CounterPhone() {
             setCurrentNumber(0);
           }
           break;
-        // TICKET_ISSUED deprecated — ignore if received
         case 'SYSTEM_RESET':
           setCurrentNumber(0);
           break;
