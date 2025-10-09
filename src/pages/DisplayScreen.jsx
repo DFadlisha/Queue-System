@@ -67,10 +67,14 @@ export default function DisplayScreen() {
           setCounters(incoming);
           break;
         case 'NUMBER_CALLED':
-          // Server provides updated counters; we rely on isActive for color display
-          // handle transitions here as well
+          // Announce which counter is calling next and update state
           const incomingCall = message.data.counters;
           const prevCall = prevCountersRef.current || [];
+          // find the counter that initiated the call (if provided)
+          const calledId = message.data.counterId;
+          if (calledId) {
+            try { announceTimes(`Please proceed to counter ${calledId}`, 3); } catch (e) { }
+          }
           incomingCall.forEach((c) => {
             const p = prevCall.find(x => x.id === c.id) || { isActive: false, currentNumber: 0 };
             const wasOccupied = p.isActive && p.currentNumber > 0;
@@ -81,7 +85,6 @@ export default function DisplayScreen() {
           });
           prevCountersRef.current = incomingCall;
           setCounters(incomingCall);
-          break;
           break;
         case 'COUNTER_CLEARED':
           // when a counter is cleared it becomes available -> announce
@@ -137,7 +140,7 @@ export default function DisplayScreen() {
         {connected ? 'Live' : 'Disconnected'}
       </div>
 
-      {/* Announcer UI removed — voice disabled */}
+  {/* Voice announcements enabled on events */}
 
       <div className="max-w-7xl mx-auto">
         <div className="text-center mb-8">
@@ -194,9 +197,7 @@ export default function DisplayScreen() {
           </p>
         </div>
 
-        <div className="mt-6 text-center text-blue-200 text-lg">
-          <p>� Voice announcements disabled • Watch this screen for visual updates</p>
-        </div>
+        {/* Footer note removed: voice announcements are enabled */}
       </div>
     </div>
   );
