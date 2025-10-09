@@ -1,0 +1,13 @@
+{
+  "typescript.preferences.includePackageJsonAutoImports": "off",
+  "typescript.validate.enable": true,
+  "typescript.check.npmIsInstalled": false,
+  "typescript.disableAutomaticTypeAcquisition": true,
+  "files.exclude": {
+    "**/node_modules/**": true
+  },
+  "search.exclude": {
+    "**/node_modules/**": true
+  },
+  "typescript.suggest.autoImports": false
+}

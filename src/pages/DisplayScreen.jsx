@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { Monitor, Volume2, WifiOff, Wifi, Home } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import announceTimes from '../utils/announcer';
 
 const WS_URL = `ws://${window.location.hostname}:3001`;
 
@@ -15,6 +16,7 @@ export default function DisplayScreen() {
   const [connected, setConnected] = useState(false);
   
   const wsRef = useRef(null);
+  const prevCountersRef = useRef(counters);
   
 
   useEffect(() => {
@@ -41,17 +43,63 @@ export default function DisplayScreen() {
       switch(message.type) {
         case 'INITIAL_STATE':
         case 'STATE_UPDATE':
-          setCounters(message.data.counters);
+          // compare with previous state to detect transitions
+          const incoming = message.data.counters;
+          const prev = prevCountersRef.current || [];
+
+          // find counters that became available: previously occupied (isActive && currentNumber>0) -> now not occupied
+          incoming.forEach((c) => {
+            const p = prev.find(x => x.id === c.id) || { isActive: false, currentNumber: 0 };
+            const wasOccupied = p.isActive && p.currentNumber > 0;
+            const nowOccupied = c.isActive && c.currentNumber > 0;
+            if (wasOccupied && !nowOccupied) {
+              // counter became available -> speak announcement 3 times
+              try {
+                announceTimes(`Counter ${c.id} is now available`, 3);
+              } catch (e) {
+                // swallow errors from speech API
+                console.warn('Announce failed', e);
+              }
+            }
+          });
+
+          prevCountersRef.current = incoming;
+          setCounters(incoming);
           break;
         case 'NUMBER_CALLED':
           // Server provides updated counters; we rely on isActive for color display
-          setCounters(message.data.counters);
+          // handle transitions here as well
+          const incomingCall = message.data.counters;
+          const prevCall = prevCountersRef.current || [];
+          incomingCall.forEach((c) => {
+            const p = prevCall.find(x => x.id === c.id) || { isActive: false, currentNumber: 0 };
+            const wasOccupied = p.isActive && p.currentNumber > 0;
+            const nowOccupied = c.isActive && c.currentNumber > 0;
+            if (wasOccupied && !nowOccupied) {
+              try { announceTimes(`Counter ${c.id} is now available`, 3); } catch (e) { }
+            }
+          });
+          prevCountersRef.current = incomingCall;
+          setCounters(incomingCall);
           break;
           break;
         case 'COUNTER_CLEARED':
-          setCounters(message.data.counters);
+          // when a counter is cleared it becomes available -> announce
+          const cleared = message.data.counters;
+          const prevCleared = prevCountersRef.current || [];
+          cleared.forEach((c) => {
+            const p = prevCleared.find(x => x.id === c.id) || { isActive: false, currentNumber: 0 };
+            const wasOccupied = p.isActive && p.currentNumber > 0;
+            const nowOccupied = c.isActive && c.currentNumber > 0;
+            if (wasOccupied && !nowOccupied) {
+              try { announceTimes(`Counter ${c.id} is now available`, 3); } catch (e) { }
+            }
+          });
+          prevCountersRef.current = cleared;
+          setCounters(cleared);
           break;
         case 'SYSTEM_RESET':
+          prevCountersRef.current = message.data.counters;
           setCounters(message.data.counters);
           break;
         // ANNOUNCE removed — voice disabled
