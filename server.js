@@ -3,6 +3,7 @@ import http from 'http';
 import { WebSocketServer } from 'ws';
 import cors from 'cors';
 import path from 'path';
+import fs from 'fs';
 import { fileURLToPath } from 'url';
 
 const app = express();
@@ -13,11 +14,15 @@ const wss = new WebSocketServer({ server, path: '/ws' });
 app.use(cors());
 app.use(express.json());
 
-// Serve static frontend in production (after `npm run build`)
+// Serve static frontend only in production (after `npm run build`)
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const distPath = path.join(__dirname, 'dist');
-app.use(express.static(distPath));
+const isProd = process.env.NODE_ENV === 'production';
+
+if (isProd) {
+  app.use(express.static(distPath));
+}
 
 // Counter availability state
 let queueState = {
@@ -155,6 +160,22 @@ wss.on('connection', (ws) => {
   });
 });
 
+// Backend status page
+app.get('/', (req, res) => {
+  res.json({
+    status: 'Queue System Backend Running',
+    port: PORT,
+    websocket: `/ws`,
+    api: {
+      state: '/api/state',
+      reset: '/api/reset'
+    },
+    frontend: isProd ? 'Served from this server' : 'Running on separate Vite server',
+    counters: queueState.counters.length,
+    activeConnections: wss.clients.size
+  });
+});
+
 // REST API endpoints (optional backup)
 app.get('/api/state', (req, res) => {
   res.json(queueState);
@@ -176,12 +197,14 @@ app.post('/api/reset', (req, res) => {
   res.json({ success: true, data: queueState });
 });
 
-// React Router fallback to index.html (Express 5: use regex instead of '*')
-app.get(/.*/, (req, res) => {
-  res.sendFile(path.join(distPath, 'index.html'));
-});
+// React Router fallback to index.html (Express 5: use regex instead of '*') only in production
+if (isProd) {
+  app.get(/.*/, (req, res) => {
+    res.sendFile(path.join(distPath, 'index.html'));
+  });
+}
 
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 3001;
 server.listen(PORT, '0.0.0.0', () => {
   console.log(`Server running on http://0.0.0.0:${PORT}`);
   console.log(`WebSocket server ready at ws://<host>:${PORT}/ws`);

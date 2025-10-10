@@ -7,11 +7,10 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "server": "node server.js",
-    "dev": "node node_modules/vite/bin/vite.js",
+    "dev": "node node_modules/vite/bin/vite.js --port 3000",
     "build": "node node_modules/vite/bin/vite.js build",
   "preview": "node node_modules/vite/bin/vite.js preview",
-  "start": "concurrently \"npm:server\" \"npm:dev\"",
-  "serve": "npm run build && node server.js"
+  "serve": "npm run build && set NODE_ENV=production && node server.js"
   },
   "keywords": [],
   "author": "",

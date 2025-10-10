@@ -177,7 +177,7 @@ export default function DisplayScreen() {
         connected ? 'bg-green-500' : 'bg-red-500'
       } text-white font-semibold z-20`}>
         {connected ? <Wifi size={20} /> : <WifiOff size={20} />}
-        {connected ? 'Live' : 'Disconnected'}
+        {connected ? 'Connected' : 'Disconnected'}
       </div>
 
       {/* Voice announcements enabled on events */}
@@ -218,10 +218,14 @@ export default function DisplayScreen() {
           <p className="text-blue-200 text-2xl">Please watch for your number</p>
         </div>
 
-        {/* L-Shape Layout */}
+        {/* L-Shape Layout (true alphabet L):
+            - Left vertical bar: counters 1–6 (full height)
+            - Bottom horizontal bar: counters 7–10 (full width)
+            - Top-right: info panel fills remaining space
+        */}
         {(() => {
-          const topRow = counters.slice(0, 5);
-          const leftColumn = counters.slice(5);
+          const leftColumn = counters.slice(0, 6);
+          const bottomRow = counters.slice(6);
           const Tile = ({ counter }) => {
             const isOccupied = counter.isActive && counter.currentNumber > 0;
             return (
@@ -239,19 +243,14 @@ export default function DisplayScreen() {
 
           return (
             <div className="flex flex-col gap-8 max-h-[70vh] overflow-auto pr-2">
-              {/* Top horizontal bar (sticky on xl screens) */}
-              <div className="grid grid-cols-5 gap-6 xl:sticky xl:top-0 xl:bg-blue-900/40 xl:backdrop-blur-sm xl:z-10 xl:py-2">
-                {topRow.map(c => <Tile key={c.id} counter={c} />)}
-              </div>
-
-              {/* Bottom area: left vertical bar (sticky) + right info panel */}
+              {/* Main grid: left column + top-right info, then bottom row spanning full width */}
               <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,3fr)] gap-6 items-start">
-                {/* Left vertical bar (sticky on xl screens) */}
-                <div className="flex flex-col gap-6 xl:sticky xl:top-0 xl:self-start">
+                {/* Left vertical bar (counters 1–6) */}
+                <div className="flex flex-col gap-6 xl:self-start">
                   {leftColumn.map(c => <Tile key={c.id} counter={c} />)}
                 </div>
 
-                {/* Right info panel */}
+                {/* Top-right info panel */}
                 <div className="space-y-6">
                   <div className="bg-white bg-opacity-10 rounded-2xl p-8 backdrop-blur-sm">
                     <h2 className="text-white text-3xl font-bold mb-6">🎯 Currently Serving</h2>
@@ -275,6 +274,11 @@ export default function DisplayScreen() {
                       📢 Please proceed to your counter when your number is called
                     </p>
                   </div>
+                </div>
+
+                {/* Bottom horizontal bar (counters 7–10) spanning both columns */}
+                <div className="col-span-2 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+                  {bottomRow.map(c => <Tile key={c.id} counter={c} />)}
                 </div>
               </div>
             </div>
