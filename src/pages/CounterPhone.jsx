@@ -1,13 +1,17 @@
 import { useState, useEffect, useRef } from 'react';
-import { Smartphone, Phone, PhoneCall, CheckCircle2, WifiOff, Wifi, Home, X } from 'lucide-react';
+import { Smartphone, Phone, PhoneCall, CheckCircle2, WifiOff, Wifi, Home, X, ToggleLeft, ToggleRight } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
-const WS_URL = `ws://${window.location.hostname}:3001`;
+const isDev = import.meta && import.meta.env && import.meta.env.DEV;
+const WS_URL = isDev
+  ? `ws://${window.location.hostname}:3001`
+  : `${location.protocol === 'https:' ? 'wss' : 'ws'}://${window.location.host}/ws`;
 
 export default function CounterPhone() {
   const [selectedCounter, setSelectedCounter] = useState(null);
   const [currentNumber, setCurrentNumber] = useState(0);
   const [connected, setConnected] = useState(false);
+  const [isActive, setIsActive] = useState(false);
   const wsRef = useRef(null);
 
   useEffect(() => {
@@ -38,6 +42,7 @@ export default function CounterPhone() {
             const counter = message.data.counters.find(c => c.id === selectedCounter);
             if (counter) {
               setCurrentNumber(counter.currentNumber);
+              setIsActive(!!counter.isActive);
             }
           }
           break;
@@ -51,6 +56,16 @@ export default function CounterPhone() {
         case 'COUNTER_CLEARED':
           if (selectedCounter && message.data.counterId === selectedCounter) {
             setCurrentNumber(0);
+            setIsActive(false);
+          }
+          break;
+        case 'COUNTER_STATUS_UPDATED':
+          if (selectedCounter && message.data.counterId === selectedCounter) {
+            const c = message.data.counters.find(x => x.id === selectedCounter);
+            if (c) {
+              setCurrentNumber(c.currentNumber);
+              setIsActive(!!c.isActive);
+            }
           }
           break;
         case 'SYSTEM_RESET':
@@ -96,6 +111,16 @@ export default function CounterPhone() {
       wsRef.current.send(JSON.stringify({
         type: 'CLEAR_COUNTER',
         counterId: selectedCounter
+      }));
+    }
+  };
+
+  const toggleStatus = () => {
+    if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+      wsRef.current.send(JSON.stringify({
+        type: 'SET_STATUS',
+        counterId: selectedCounter,
+        isActive: !isActive
       }));
     }
   };
@@ -215,13 +240,26 @@ export default function CounterPhone() {
                 <X size={32} />
                 Clear Counter
               </button>
+
+              <button
+                onClick={toggleStatus}
+                disabled={!connected}
+                className={`w-full py-6 rounded-2xl transition text-2xl font-semibold flex items-center justify-center gap-3 active:scale-95 ${
+                  connected
+                    ? (isActive ? 'bg-red-500 text-white hover:bg-red-600' : 'bg-green-500 text-white hover:bg-green-600')
+                    : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                }`}
+              >
+                {isActive ? <ToggleRight size={32} /> : <ToggleLeft size={32} />}
+                {isActive ? 'Mark Available' : 'Mark Occupied'}
+              </button>
             </div>
 
             <div className="mt-8 pt-8 border-t-2 border-gray-200">
               <div className="grid grid-cols-2 gap-4 text-center">
                 <div className="bg-blue-50 rounded-xl p-4">
                   <p className="text-gray-600 text-lg">Status</p>
-                  <p className="text-blue-600 text-4xl font-bold">{currentNumber > 0 ? 'Occupied' : 'Available'}</p>
+                  <p className="text-blue-600 text-4xl font-bold">{isActive ? 'Occupied' : 'Available'}</p>
                 </div>
                 <div className="bg-green-50 rounded-xl p-4">
                   <p className="text-gray-600 text-lg">Your Counter</p>

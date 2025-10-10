@@ -2,13 +2,22 @@ import express from 'express';
 import http from 'http';
 import { WebSocketServer } from 'ws';
 import cors from 'cors';
+import path from 'path';
+import { fileURLToPath } from 'url';
 
 const app = express();
 const server = http.createServer(app);
-const wss = new WebSocketServer({ server });
+// mount WebSocket on a path so clients can use same-origin URL
+const wss = new WebSocketServer({ server, path: '/ws' });
 
 app.use(cors());
 app.use(express.json());
+
+// Serve static frontend in production (after `npm run build`)
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const distPath = path.join(__dirname, 'dist');
+app.use(express.static(distPath));
 
 // Counter availability state
 let queueState = {
@@ -108,6 +117,27 @@ wss.on('connection', (ws) => {
           });
           break;
 
+        case 'SET_STATUS': {
+          const { counterId, isActive } = data;
+          const idx = queueState.counters.findIndex(c => c.id === counterId);
+          if (idx !== -1) {
+            queueState.counters[idx] = {
+              ...queueState.counters[idx],
+              isActive: !!isActive,
+              currentNumber: isActive ? 1 : 0
+            };
+          }
+
+          broadcast({
+            type: 'COUNTER_STATUS_UPDATED',
+            data: {
+              counterId,
+              counters: queueState.counters
+            }
+          });
+        }
+        break;
+
         case 'GET_STATE':
           ws.send(JSON.stringify({
             type: 'STATE_UPDATE',
@@ -146,8 +176,13 @@ app.post('/api/reset', (req, res) => {
   res.json({ success: true, data: queueState });
 });
 
-const PORT = process.env.PORT || 3001;
+// React Router fallback to index.html (Express 5: use regex instead of '*')
+app.get(/.*/, (req, res) => {
+  res.sendFile(path.join(distPath, 'index.html'));
+});
+
+const PORT = process.env.PORT || 3000;
 server.listen(PORT, '0.0.0.0', () => {
-  console.log(`Server running on port ${PORT}`);
-  console.log(`WebSocket server is ready`);
+  console.log(`Server running on http://0.0.0.0:${PORT}`);
+  console.log(`WebSocket server ready at ws://<host>:${PORT}/ws`);
 });

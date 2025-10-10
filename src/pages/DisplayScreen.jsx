@@ -1,9 +1,12 @@
 import { useState, useEffect, useRef } from 'react';
 import { Monitor, Volume2, WifiOff, Wifi, Home } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import announceTimes from '../utils/announcer';
+import announceTimes, { unlockSpeech, isSpeechAvailable, beepFallback, speechSelfTest } from '../utils/announcer';
 
-const WS_URL = `ws://${window.location.hostname}:3001`;
+const isDev = import.meta && import.meta.env && import.meta.env.DEV;
+const WS_URL = isDev
+  ? `ws://${window.location.hostname}:3001`
+  : `${location.protocol === 'https:' ? 'wss' : 'ws'}://${window.location.host}/ws`;
 
 export default function DisplayScreen() {
   const [counters, setCounters] = useState(
@@ -14,6 +17,10 @@ export default function DisplayScreen() {
     }))
   );
   const [connected, setConnected] = useState(false);
+  const [soundReady, setSoundReady] = useState(() => {
+    try { return localStorage.getItem('soundReady') === '1'; } catch { return false; }
+  });
+  const [speechSupported, setSpeechSupported] = useState(true);
   
   const wsRef = useRef(null);
   const prevCountersRef = useRef(counters);
@@ -21,10 +28,27 @@ export default function DisplayScreen() {
 
   useEffect(() => {
     connectWebSocket();
+    // Detect speech availability
+    setSpeechSupported(isSpeechAvailable());
+
+    // Unlock speech synthesis on first user interaction (required by some browsers)
+    const unlock = () => {
+      try {
+        unlockSpeech();
+        setSoundReady(true);
+        try { localStorage.setItem('soundReady', '1'); } catch {}
+      } catch (e) {}
+      window.removeEventListener('click', unlock);
+      window.removeEventListener('touchstart', unlock);
+    };
+    window.addEventListener('click', unlock);
+    window.addEventListener('touchstart', unlock, { passive: true });
     return () => {
       if (wsRef.current) {
         wsRef.current.close();
       }
+      window.removeEventListener('click', unlock);
+      window.removeEventListener('touchstart', unlock);
     };
   }, []);
 
@@ -105,7 +129,10 @@ export default function DisplayScreen() {
           prevCountersRef.current = message.data.counters;
           setCounters(message.data.counters);
           break;
-        // ANNOUNCE removed — voice disabled
+        case 'COUNTER_STATUS_UPDATED':
+          prevCountersRef.current = message.data.counters;
+          setCounters(message.data.counters);
+          break;
       }
     };
 
@@ -123,7 +150,20 @@ export default function DisplayScreen() {
     wsRef.current = ws;
   };
 
-    // announcer functionality removed — display is visual-only
+  const handleEnableSound = async () => {
+    try {
+      unlockSpeech();
+      setSoundReady(true);
+      try { localStorage.setItem('soundReady', '1'); } catch {}
+      await announceTimes('Announcements enabled', 1, { volume: 1 });
+    } catch {}
+  };
+
+  const handleTestVoice = async () => {
+    try {
+      await announceTimes('Test: voice announcement working', 1, { volume: 1 });
+    } catch {}
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-900 via-blue-800 to-purple-900 p-6 relative">
@@ -140,7 +180,33 @@ export default function DisplayScreen() {
         {connected ? 'Live' : 'Disconnected'}
       </div>
 
-  {/* Voice announcements enabled on events */}
+      {/* Voice announcements enabled on events */}
+
+      {/* Sound small status chip */}
+      <div className="absolute top-4 left-1/2 -translate-x-1/2 z-20">
+        {speechSupported ? (
+          <div className={`px-3 py-1 rounded-full text-sm font-semibold ${soundReady ? 'bg-green-600 text-white' : 'bg-yellow-500 text-black'}`}>
+            {soundReady ? 'Sound: Ready' : 'Sound: Tap Enable'}
+          </div>
+        ) : (
+          <div className="px-3 py-1 rounded-full text-sm font-semibold bg-gray-500 text-white">Sound: Unavailable</div>
+        )}
+      </div>
+
+      {/* Sound enable banner */}
+      {speechSupported && !soundReady && (
+        <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-30 bg-black/70 text-white px-4 py-3 rounded-xl shadow-lg flex items-center gap-3">
+          <span>Click to enable voice announcements</span>
+          <button onClick={handleEnableSound} className="bg-green-500 hover:bg-green-600 text-white font-semibold px-3 py-1 rounded-lg">Enable</button>
+          <Link to="/" className="ml-2 underline text-blue-200">Home</Link>
+        </div>
+      )}
+      {speechSupported && soundReady && (
+        <div className="fixed bottom-4 right-4 z-30 bg-black/50 text-white px-3 py-2 rounded-lg shadow-lg flex items-center gap-2">
+          <button onClick={handleTestVoice} className="bg-blue-500 hover:bg-blue-600 text-white font-semibold px-2 py-1 rounded">Test Voice</button>
+          <button onClick={() => beepFallback()} className="bg-gray-500 hover:bg-gray-600 text-white font-semibold px-2 py-1 rounded">Beep</button>
+        </div>
+      )}
 
       <div className="max-w-7xl mx-auto">
         <div className="text-center mb-8">
@@ -152,52 +218,70 @@ export default function DisplayScreen() {
           <p className="text-blue-200 text-2xl">Please watch for your number</p>
         </div>
 
-        <div className="grid grid-cols-5 gap-6 mb-8">
-          {counters.map((counter) => {
+        {/* L-Shape Layout */}
+        {(() => {
+          const topRow = counters.slice(0, 5);
+          const leftColumn = counters.slice(5);
+          const Tile = ({ counter }) => {
             const isOccupied = counter.isActive && counter.currentNumber > 0;
             return (
-              <div key={counter.id} className="rounded-2xl p-6 text-center">
+              <div key={counter.id} className="rounded-2xl p-6 text-center bg-white/5">
                 <div className="text-xl font-semibold mb-3 text-white">Counter {counter.id}</div>
                 <div className="flex items-center justify-center">
-                  {/* colour indicator: green when empty, red when occupied */}
-                  <div className={`w-28 h-28 rounded-full shadow-lg transition-colors ${
-                    isOccupied ? 'bg-red-500' : 'bg-green-500'
-                  }`} />
+                  <div className={`w-28 h-28 rounded-full shadow-lg transition-colors ${isOccupied ? 'bg-red-500' : 'bg-green-500'}`} />
                 </div>
                 <div className="mt-3 text-sm text-blue-200">
                   {isOccupied ? 'Occupied' : 'Available'}
                 </div>
               </div>
             );
-          })}
-        </div>
+          };
 
-        <div className="bg-white bg-opacity-10 rounded-2xl p-8 backdrop-blur-sm">
-          <h2 className="text-white text-3xl font-bold text-center mb-6">
-            🎯 Currently Serving
-          </h2>
-          <div className="grid grid-cols-5 gap-4">
-            {counters.filter(c => c.isActive).map((counter) => (
-              <div key={counter.id} className="bg-yellow-500 rounded-xl p-4 text-center animate-pulse">
-                <div className="text-white text-xl font-bold">Counter {counter.id}</div>
-                <div className="text-yellow-100 text-sm">Occupied</div>
+          return (
+            <div className="flex flex-col gap-8 max-h-[70vh] overflow-auto pr-2">
+              {/* Top horizontal bar (sticky on xl screens) */}
+              <div className="grid grid-cols-5 gap-6 xl:sticky xl:top-0 xl:bg-blue-900/40 xl:backdrop-blur-sm xl:z-10 xl:py-2">
+                {topRow.map(c => <Tile key={c.id} counter={c} />)}
               </div>
-            ))}
-            {counters.filter(c => c.isActive).length === 0 && (
-              <div className="col-span-5 text-center text-white text-xl py-4">
-                No active counters at the moment
+
+              {/* Bottom area: left vertical bar (sticky) + right info panel */}
+              <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,3fr)] gap-6 items-start">
+                {/* Left vertical bar (sticky on xl screens) */}
+                <div className="flex flex-col gap-6 xl:sticky xl:top-0 xl:self-start">
+                  {leftColumn.map(c => <Tile key={c.id} counter={c} />)}
+                </div>
+
+                {/* Right info panel */}
+                <div className="space-y-6">
+                  <div className="bg-white bg-opacity-10 rounded-2xl p-8 backdrop-blur-sm">
+                    <h2 className="text-white text-3xl font-bold mb-6">🎯 Currently Serving</h2>
+                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                      {counters.filter(c => c.isActive).map((counter) => (
+                        <div key={counter.id} className="bg-yellow-500 rounded-xl p-4 text-center animate-pulse">
+                          <div className="text-white text-xl font-bold">Counter {counter.id}</div>
+                          <div className="text-yellow-100 text-sm">Occupied</div>
+                        </div>
+                      ))}
+                      {counters.filter(c => c.isActive).length === 0 && (
+                        <div className="col-span-full text-center text-white text-xl py-4">
+                          No active counters at the moment
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="bg-gradient-to-r from-yellow-500 to-orange-500 rounded-2xl p-6 text-center">
+                    <p className="text-white text-2xl font-semibold">
+                      📢 Please proceed to your counter when your number is called
+                    </p>
+                  </div>
+                </div>
               </div>
-            )}
-          </div>
-        </div>
+            </div>
+          );
+        })()}
 
-        <div className="mt-8 bg-gradient-to-r from-yellow-500 to-orange-500 rounded-2xl p-6 text-center">
-          <p className="text-white text-2xl font-semibold">
-            📢 Please proceed to your counter when your number is called
-          </p>
-        </div>
-
-        {/* Footer note removed: voice announcements are enabled */}
+  {/* Footer note removed: voice announcements are enabled */}
       </div>
     </div>
   );

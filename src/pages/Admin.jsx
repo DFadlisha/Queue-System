@@ -1,8 +1,11 @@
 import { useState, useEffect, useRef } from 'react';
-import { Settings, WifiOff, Wifi, Home, RefreshCw, Trash2, Activity } from 'lucide-react';
+import { Settings, WifiOff, Wifi, Home, RefreshCw, Trash2, Activity, PhoneCall, RefreshCcw } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
-const WS_URL = `ws://${window.location.hostname}:3001`;
+const isDev = import.meta && import.meta.env && import.meta.env.DEV;
+const WS_URL = isDev
+  ? `ws://${window.location.hostname}:3001`
+  : `${location.protocol === 'https:' ? 'wss' : 'ws'}://${window.location.host}/ws`;
 
 export default function Admin() {
   const [counters, setCounters] = useState(
@@ -66,6 +69,9 @@ export default function Admin() {
         case 'COUNTER_CLEARED':
           setCounters(message.data.counters.map(c => ({ ...c, servedCount: c.servedCount || 0 })));
           break;
+        case 'COUNTER_STATUS_UPDATED':
+          setCounters(message.data.counters.map(c => ({ ...c, servedCount: c.servedCount || 0 })));
+          break;
         case 'SYSTEM_RESET':
           setCounters(message.data.counters.map(c => ({ ...c, servedCount: 0 })));
           break;
@@ -86,6 +92,16 @@ export default function Admin() {
     wsRef.current = ws;
   };
 
+  const reconnect = () => {
+    try {
+      if (wsRef.current) {
+        wsRef.current.onclose = null;
+        wsRef.current.close();
+      }
+    } catch {}
+    setTimeout(connectWebSocket, 50);
+  };
+
   const resetSystem = () => {
     if (confirm('⚠️ Reset entire queue system? This will:\n- Clear all counters\n- Reset queue numbers to 1\n- Clear all data\n\nThis action cannot be undone.')) {
       if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
@@ -103,6 +119,29 @@ export default function Admin() {
           counterId
         }));
       }
+    }
+  };
+
+  const callNext = (counterId) => {
+    if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) {
+      alert('Not connected to server.');
+      return;
+    }
+    wsRef.current.send(JSON.stringify({
+      type: 'CALL_NEXT',
+      counterId
+    }));
+  };
+
+  const clearAllCounters = () => {
+    if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) {
+      alert('Not connected to server.');
+      return;
+    }
+    if (confirm('Clear ALL counters?')) {
+      counters.forEach(c => {
+        wsRef.current.send(JSON.stringify({ type: 'CLEAR_COUNTER', counterId: c.id }));
+      });
     }
   };
 
@@ -164,7 +203,7 @@ export default function Admin() {
         {/* Quick Actions */}
         <div className="bg-white rounded-xl p-6 shadow-lg mb-8">
           <h2 className="text-2xl font-bold text-gray-800 mb-4">Quick Actions</h2>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <button
               onClick={resetSystem}
               disabled={!connected}
@@ -185,10 +224,27 @@ export default function Admin() {
               <RefreshCw size={24} />
               Refresh Page
             </button>
-            
-            <div className="flex items-center justify-center gap-3 bg-gray-100 text-gray-800 py-4 rounded-lg font-semibold text-lg">
-              Voice announcements disabled
-            </div>
+
+            <button
+              onClick={clearAllCounters}
+              disabled={!connected}
+              className={`flex items-center justify-center gap-3 py-4 rounded-lg font-semibold text-lg transition ${
+                connected
+                  ? 'bg-yellow-500 text-white hover:bg-yellow-600'
+                  : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+              }`}
+            >
+              <Trash2 size={24} />
+              Clear All Counters
+            </button>
+
+            <button
+              onClick={reconnect}
+              className="flex items-center justify-center gap-3 bg-gray-800 text-white py-4 rounded-lg font-semibold text-lg hover:bg-black transition"
+            >
+              <RefreshCcw size={24} />
+              Reconnect
+            </button>
           </div>
         </div>
 
@@ -210,11 +266,20 @@ export default function Admin() {
                   {counter.isActive ? 'Occupied' : 'Available'}
                 </div>
 
-                <div className="text-sm text-gray-500 mb-4">
-                  Served: <span className="font-semibold text-gray-800">{counter.servedCount || 0}</span>
+                <div className="text-sm text-gray-700 mb-4 bg-gray-50 rounded p-2">
+                  <span className="font-semibold">Total Registered:</span> {counter.servedCount || 0}
                 </div>
 
                 <div className="space-y-2">
+                  <button
+                    onClick={() => callNext(counter.id)}
+                    disabled={!connected}
+                    className={`w-full py-2 rounded-lg transition text-sm font-semibold flex items-center justify-center gap-2 ${
+                      connected ? 'bg-green-600 text-white hover:bg-green-700' : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                    }`}
+                  >
+                    <PhoneCall size={18} /> Call Next
+                  </button>
                   <button
                     onClick={() => clearCounter(counter.id)}
                     disabled={!connected}
@@ -237,7 +302,7 @@ export default function Admin() {
               <p><strong>Server:</strong> {WS_URL}</p>
             </div>
             <div>
-              <p><strong>Voice Announcements:</strong> ❌ Disabled</p>
+              <p><strong>Announcements:</strong> 🔊 On Display screen</p>
               <p><strong>Auto-Refresh:</strong> ✅ Real-time updates</p>
             </div>
           </div>
