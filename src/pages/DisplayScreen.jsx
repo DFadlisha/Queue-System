@@ -5,7 +5,7 @@ import announceTimes, { unlockSpeech, isSpeechAvailable, beepFallback, speechSel
 
 const isDev = import.meta && import.meta.env && import.meta.env.DEV;
 const WS_URL = isDev
-  ? `ws://${window.location.hostname}:3001`
+  ? `ws://${window.location.hostname}:3001/ws`
   : `${location.protocol === 'https:' ? 'wss' : 'ws'}://${window.location.host}/ws`;
 
 export default function DisplayScreen() {

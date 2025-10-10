@@ -4,7 +4,7 @@ import { Link } from 'react-router-dom';
 
 const isDev = import.meta && import.meta.env && import.meta.env.DEV;
 const WS_URL = isDev
-  ? `ws://${window.location.hostname}:3001`
+  ? `ws://${window.location.hostname}:3001/ws`
   : `${location.protocol === 'https:' ? 'wss' : 'ws'}://${window.location.host}/ws`;
 
 export default function CounterPhone() {
@@ -246,7 +246,7 @@ export default function CounterPhone() {
                 disabled={!connected}
                 className={`w-full py-6 rounded-2xl transition text-2xl font-semibold flex items-center justify-center gap-3 active:scale-95 ${
                   connected
-                    ? (isActive ? 'bg-red-500 text-white hover:bg-red-600' : 'bg-green-500 text-white hover:bg-green-600')
+                    ? (isActive ? 'bg-green-500 text-white hover:bg-green-600' : 'bg-red-500 text-white hover:bg-red-600')
                     : 'bg-gray-300 text-gray-500 cursor-not-allowed'
                 }`}
               >

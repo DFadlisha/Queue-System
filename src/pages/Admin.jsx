@@ -4,7 +4,7 @@ import { Link } from 'react-router-dom';
 
 const isDev = import.meta && import.meta.env && import.meta.env.DEV;
 const WS_URL = isDev
-  ? `ws://${window.location.hostname}:3001`
+  ? `ws://${window.location.hostname}:3001/ws`
   : `${location.protocol === 'https:' ? 'wss' : 'ws'}://${window.location.host}/ws`;
 
 export default function Admin() {
@@ -22,6 +22,7 @@ export default function Admin() {
     activeCounters: 0,
     servedToday: 0
   });
+  const [showActiveOnly, setShowActiveOnly] = useState(false);
   const wsRef = useRef(null);
 
   useEffect(() => {
@@ -90,6 +91,36 @@ export default function Admin() {
     };
 
     wsRef.current = ws;
+  };
+
+  const exportRegistrationsCsv = () => {
+    try {
+      const list = (showActiveOnly ? counters.filter(c => c.isActive) : counters)
+        .map(c => ({ id: c.id, served: c.servedCount || 0, status: c.isActive ? 'Occupied' : 'Available' }))
+        .sort((a, b) => a.id - b.id);
+      const rows = [
+        ['Counter', 'Total Registered', 'Status'],
+        ...list.map(r => [`Counter ${r.id}`, String(r.served), r.status])
+      ];
+      const csv = rows.map(r => r.map(v => {
+        const s = String(v);
+        return s.includes(',') || s.includes('"') || s.includes('\n') ? '"' + s.replace(/"/g, '""') + '"' : s;
+      }).join(',')).join('\r\n');
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      const ts = new Date().toISOString().replace(/[:T]/g, '-').split('.')[0];
+      a.href = url;
+      a.download = `admin-registrations-${ts}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch (e) {
+      alert('Failed to export CSV.');
+      // eslint-disable-next-line no-console
+      console.error(e);
+    }
   };
 
   const reconnect = () => {
@@ -248,8 +279,63 @@ export default function Admin() {
           </div>
         </div>
 
+        {/* Registrations by Counter */}
+        <div className="bg-white rounded-xl p-6 shadow-lg mb-8 text-gray-800">
+          <h2 className="text-2xl font-bold text-gray-800 mb-4">Registrations by Counter</h2>
+          <div className="flex items-center justify-between mb-3 gap-4 flex-wrap">
+            <label className="inline-flex items-center gap-2 text-sm text-gray-700">
+              <input
+                type="checkbox"
+                className="h-4 w-4"
+                checked={showActiveOnly}
+                onChange={(e) => setShowActiveOnly(e.target.checked)}
+              />
+              Show only active counters
+            </label>
+            <button
+              onClick={exportRegistrationsCsv}
+              className="px-4 py-2 rounded-lg bg-gray-800 text-white text-sm font-semibold hover:bg-black transition"
+            >
+              Export CSV
+            </button>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="min-w-full text-left">
+              <thead>
+                <tr className="text-gray-600 border-b">
+                  <th className="py-3 px-4 font-semibold">Counter</th>
+                  <th className="py-3 px-4 font-semibold">Total Registered</th>
+                  <th className="py-3 px-4 font-semibold">Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {(showActiveOnly ? counters.filter(c => c.isActive) : counters).map((c) => (
+                  <tr key={c.id} className="border-b last:border-0">
+                    <td className="py-2 px-4 text-gray-800">Counter {c.id}</td>
+                    <td className="py-2 px-4 font-semibold text-gray-800">{c.servedCount || 0}</td>
+                    <td className="py-2 px-4 text-gray-800">
+                      <span className={`px-2 py-1 rounded-full text-xs font-semibold ${c.isActive ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'}`}>
+                        {c.isActive ? 'Occupied' : 'Available'}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+              <tfoot>
+                <tr>
+                  <td className="py-3 px-4 font-bold text-gray-800">Total</td>
+                  <td className="py-3 px-4 font-bold text-gray-800">
+                    {(showActiveOnly ? counters.filter(c => c.isActive) : counters).reduce((sum, c) => sum + (c.servedCount || 0), 0)}
+                  </td>
+                  <td className="py-3 px-4" />
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+        </div>
+
         {/* Counters Grid */}
-        <div className="bg-white rounded-xl p-6 shadow-lg">
+        <div className="bg-white rounded-xl p-6 shadow-lg text-gray-800">
           <h2 className="text-2xl font-bold text-gray-800 mb-6">Counter Status</h2>
           <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
             {counters.map((counter) => (
@@ -262,7 +348,7 @@ export default function Admin() {
                   <div className={`w-4 h-4 rounded-full ${counter.isActive ? 'bg-green-500' : 'bg-gray-300'}`} />
                 </div>
 
-                <div className="text-3xl font-bold mb-3">
+                <div className="text-3xl font-bold mb-3 text-gray-800">
                   {counter.isActive ? 'Occupied' : 'Available'}
                 </div>
 
