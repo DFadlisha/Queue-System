@@ -1,8 +1,27 @@
 import { kv } from '@vercel/kv';
 
+async function parseBody(req) {
+  return new Promise((resolve) => {
+    try {
+      const chunks = [];
+      req.on('data', (c) => chunks.push(c));
+      req.on('end', () => {
+        try {
+          const raw = Buffer.concat(chunks).toString('utf8');
+          resolve(raw ? JSON.parse(raw) : {});
+        } catch {
+          resolve({});
+        }
+      });
+    } catch {
+      resolve({});
+    }
+  });
+}
+
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
-  const { counterId, isActive } = req.body || {};
+  const { counterId, isActive } = (req.body || (await parseBody(req))) || {};
   if (!counterId) return res.status(400).json({ error: 'counterId required' });
   const state = (await kv.get('queue:state')) || { counters: [] };
   const idx = Number(counterId) - 1;
