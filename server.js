@@ -1,3 +1,6 @@
+// Removed: legacy Node server not needed for Vercel-only deployment.
+export {};
+
 import express from 'express';
 import http from 'http';
 import { WebSocketServer } from 'ws';

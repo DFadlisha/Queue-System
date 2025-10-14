@@ -2,26 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { Monitor, Volume2, WifiOff, Wifi, Home } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import announceTimes, { unlockSpeech, isSpeechAvailable, beepFallback, speechSelfTest } from '../utils/announcer';
-
-const isDev = import.meta && import.meta.env && import.meta.env.DEV;
-const host = (() => {
-  try {
-    return window.location.hostname === 'localhost' ? '127.0.0.1' : window.location.hostname;
-  } catch {
-    return '127.0.0.1';
-  }
-})();
-const WS_BASE = (() => {
-  const override = import.meta?.env?.VITE_WS_URL;
-  if (override && typeof override === 'string' && override.trim()) {
-    return override.replace(/\/$/, ''); // strip trailing slash
-  }
-  if (isDev) return `ws://${host}:3001`;
-  const proto = location.protocol === 'https:' ? 'wss' : 'ws';
-  const hostport = location.host; // includes port if present
-  return `${proto}://${hostport}`;
-})();
-const WS_URL = `${WS_BASE}/ws`;
+import { subscribeState } from '../utils/api';
 
 export default function DisplayScreen() {
   const [counters, setCounters] = useState(
@@ -40,37 +21,63 @@ export default function DisplayScreen() {
     try { return localStorage.getItem('tvMode') === '1'; } catch { return false; }
   });
   
-  const wsRef = useRef(null);
-  const retryDelayRef = useRef(500); // start fast, then back off up to 5s
   const prevCountersRef = useRef(counters);
+  const unsubRef = useRef(null);
   
 
   useEffect(() => {
-    connectWebSocket();
+    // subscribe to realtime state
+    (async () => {
+      const unsub = await subscribeState((state) => {
+        const inc = state?.counters || [];
+        // detect availability transitions
+        const prev = prevCountersRef.current || [];
+        inc.forEach((c) => {
+          const p = prev.find(x => x.id === c.id) || { isActive: false, currentNumber: 0 };
+          const wasOccupied = p.isActive && p.currentNumber > 0;
+          const nowOccupied = c.isActive && c.currentNumber > 0;
+          if (wasOccupied && !nowOccupied) {
+            safeAnnounce(`Counter ${c.id} is now available`, 3);
+          }
+        });
+        const ev = state?.lastEvent;
+        if (ev?.type === 'NUMBER_CALLED' && ev.counterId) {
+          safeAnnounce(`Please proceed to counter ${ev.counterId}`, 3);
+        }
+        prevCountersRef.current = inc;
+        setCounters(inc);
+        setConnected(true);
+      });
+      unsubRef.current = unsub;
+    })();
     // Detect speech availability
     setSpeechSupported(isSpeechAvailable());
 
     // Unlock speech synthesis on first user interaction (required by some browsers)
-    const unlock = () => {
+    const unlock = async () => {
       try {
         unlockSpeech();
-        setSoundReady(true);
-        try { localStorage.setItem('soundReady', '1'); } catch {}
-      } catch (e) {}
+        const ok = await speechSelfTest();
+        if (ok) {
+          setSoundReady(true);
+          try { localStorage.setItem('soundReady', '1'); } catch {}
+        }
+      } catch {}
       window.removeEventListener('click', unlock);
       window.removeEventListener('touchstart', unlock);
       window.removeEventListener('pointerdown', unlock);
+      window.removeEventListener('keydown', unlock);
     };
     window.addEventListener('click', unlock);
     window.addEventListener('touchstart', unlock, { passive: true });
     window.addEventListener('pointerdown', unlock, { passive: true });
+    window.addEventListener('keydown', unlock);
     return () => {
-      if (wsRef.current) {
-        wsRef.current.close();
-      }
+      try { unsubRef.current && unsubRef.current(); } catch {}
       window.removeEventListener('click', unlock);
       window.removeEventListener('touchstart', unlock);
-      window.removeEventListener('pointerdown', unlock);
+  window.removeEventListener('pointerdown', unlock);
+  window.removeEventListener('keydown', unlock);
     };
   }, []);
 
@@ -113,109 +120,20 @@ export default function DisplayScreen() {
     try { await announceTimes(text, times, { volume: 1 }); } catch { /* ignore */ }
   };
 
-  const connectWebSocket = () => {
-    const ws = new WebSocket(WS_URL);
-    
-    ws.onopen = () => {
-      console.log('Connected to server');
-      setConnected(true);
-      retryDelayRef.current = 500; // reset backoff on success
-      ws.send(JSON.stringify({ type: 'GET_STATE' }));
-    };
-
-    ws.onmessage = (event) => {
-      const message = JSON.parse(event.data);
-      
-      switch(message.type) {
-        case 'INITIAL_STATE':
-        case 'STATE_UPDATE':
-          // compare with previous state to detect transitions
-          const incoming = message.data.counters;
-          const prev = prevCountersRef.current || [];
-
-          // find counters that became available: previously occupied (isActive && currentNumber>0) -> now not occupied
-          incoming.forEach((c) => {
-            const p = prev.find(x => x.id === c.id) || { isActive: false, currentNumber: 0 };
-            const wasOccupied = p.isActive && p.currentNumber > 0;
-            const nowOccupied = c.isActive && c.currentNumber > 0;
-            if (wasOccupied && !nowOccupied) {
-              // counter became available -> announce or beep 3 times
-              safeAnnounce(`Counter ${c.id} is now available`, 3);
-            }
-          });
-
-          prevCountersRef.current = incoming;
-          setCounters(incoming);
-          break;
-        case 'NUMBER_CALLED':
-          // Announce which counter is calling next and update state
-          const incomingCall = message.data.counters;
-          const prevCall = prevCountersRef.current || [];
-          // find the counter that initiated the call (if provided)
-          const calledId = message.data.counterId;
-          if (calledId) {
-            safeAnnounce(`Please proceed to counter ${calledId}`, 3);
-          }
-          incomingCall.forEach((c) => {
-            const p = prevCall.find(x => x.id === c.id) || { isActive: false, currentNumber: 0 };
-            const wasOccupied = p.isActive && p.currentNumber > 0;
-            const nowOccupied = c.isActive && c.currentNumber > 0;
-            if (wasOccupied && !nowOccupied) {
-              safeAnnounce(`Counter ${c.id} is now available`, 3);
-            }
-          });
-          prevCountersRef.current = incomingCall;
-          setCounters(incomingCall);
-          break;
-        case 'COUNTER_CLEARED':
-          // when a counter is cleared it becomes available -> announce
-          const cleared = message.data.counters;
-          const prevCleared = prevCountersRef.current || [];
-          cleared.forEach((c) => {
-            const p = prevCleared.find(x => x.id === c.id) || { isActive: false, currentNumber: 0 };
-            const wasOccupied = p.isActive && p.currentNumber > 0;
-            const nowOccupied = c.isActive && c.currentNumber > 0;
-            if (wasOccupied && !nowOccupied) {
-              try { announceTimes(`Counter ${c.id} is now available`, 3); } catch (e) { }
-            }
-          });
-          prevCountersRef.current = cleared;
-          setCounters(cleared);
-          break;
-        case 'SYSTEM_RESET':
-          prevCountersRef.current = message.data.counters;
-          setCounters(message.data.counters);
-          break;
-        case 'COUNTER_STATUS_UPDATED':
-          prevCountersRef.current = message.data.counters;
-          setCounters(message.data.counters);
-          break;
-      }
-    };
-
-    ws.onerror = (error) => {
-      console.error('WebSocket error:', error);
-      setConnected(false);
-      try { ws.close(); } catch {}
-    };
-
-    ws.onclose = () => {
-      console.log('Disconnected from server');
-      setConnected(false);
-      const delay = Math.min(retryDelayRef.current, 5000);
-      setTimeout(connectWebSocket, delay);
-      retryDelayRef.current = Math.min(delay * 2, 5000);
-    };
-
-    wsRef.current = ws;
-  };
+  // Announce when NUMBER_CALLED detected via state transitions (handled in subscribe above)
 
   const handleEnableSound = async () => {
     try {
       unlockSpeech();
-      setSoundReady(true);
-      try { localStorage.setItem('soundReady', '1'); } catch {}
-      await announceTimes('Announcements enabled', 1, { volume: 1 });
+      const ok = await speechSelfTest();
+      if (ok) {
+        setSoundReady(true);
+        try { localStorage.setItem('soundReady', '1'); } catch {}
+        await announceTimes('Announcements enabled', 1, { volume: 1 });
+      } else {
+        // if voice still blocked, give a beep to confirm some audio path works
+        await beepFallback(200, 880, 0.4);
+      }
     } catch {}
   };
 

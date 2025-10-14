@@ -1,34 +1,13 @@
 import { useState, useEffect, useRef } from 'react';
 import { Settings, Home, RefreshCw, RefreshCcw, Trash2, Activity, PhoneCall } from 'lucide-react';
 import { Link } from 'react-router-dom';
-
-const isDev = import.meta && import.meta.env && import.meta.env.DEV;
-const host = (() => {
-  try {
-    return window.location.hostname === 'localhost' ? '127.0.0.1' : window.location.hostname;
-  } catch (error) {
-    return '127.0.0.1';
-  }
-})();
-
-const WS_BASE = (() => {
-  const override = import.meta?.env?.VITE_WS_URL;
-  if (override && typeof override === 'string' && override.trim()) {
-    return override.replace(/\/$/, '');
-  }
-  if (isDev) return `ws://${host}:3001`;
-  const proto = location.protocol === 'https:' ? 'wss' : 'ws';
-  const hostport = location.host;
-  return `${proto}://${hostport}`;
-})();
-const WS_URL = `${WS_BASE}/ws`;
+import { subscribeState, callNext as apiCallNext, clearCounter as apiClearCounter, resetSystem as apiResetSystem } from '../utils/api';
 
 export default function Admin() {
-  const [connected, setConnected] = useState(false);
+  const [connected, setConnected] = useState(true);
   const [counters, setCounters] = useState([]);
   const [showActiveOnly, setShowActiveOnly] = useState(false);
-  const wsRef = useRef(null);
-  const retryDelayRef = useRef(500);
+  const unsubRef = useRef(null);
 
   const stats = {
     totalServed: counters.reduce((sum, c) => sum + (c.servedCount || 0), 0),
@@ -37,67 +16,26 @@ export default function Admin() {
   };
 
   useEffect(() => {
-    connectWebSocket();
-    return () => {
-      if (wsRef.current) {
-        wsRef.current.onclose = null;
-        wsRef.current.close();
+    let mounted = true;
+    (async () => {
+      try {
+        const unsub = await subscribeState((state) => {
+          if (!mounted || !state) return;
+          const counters = (state.counters || []).map(c => ({ ...c, servedCount: c.servedCount || 0 }));
+          setCounters(counters);
+          setConnected(true);
+        });
+        unsubRef.current = unsub;
+      } catch (e) {
+        console.error(e);
+        setConnected(false);
       }
+    })();
+    return () => {
+      mounted = false;
+      try { unsubRef.current && unsubRef.current(); } catch {}
     };
   }, []);
-
-  const connectWebSocket = () => {
-    const ws = new WebSocket(WS_URL);
-    
-    ws.onopen = () => {
-      console.log('Connected to server');
-      setConnected(true);
-      retryDelayRef.current = 500;
-      // request state
-      ws.send(JSON.stringify({ type: 'GET_STATE' }));
-    };
-
-    ws.onmessage = (event) => {
-      const message = JSON.parse(event.data);
-      
-      switch(message.type) {
-        case 'INITIAL_STATE':
-        case 'STATE_UPDATE':
-          // ensure servedCount exists
-          setCounters(message.data.counters.map(c => ({ ...c, servedCount: c.servedCount || 0 })));
-          break;
-        case 'NUMBER_CALLED':
-          // server provided updated counters
-          setCounters(message.data.counters.map(c => ({ ...c, servedCount: c.servedCount || 0 })));
-          break;
-        case 'COUNTER_CLEARED':
-          setCounters(message.data.counters.map(c => ({ ...c, servedCount: c.servedCount || 0 })));
-          break;
-        case 'COUNTER_STATUS_UPDATED':
-          setCounters(message.data.counters.map(c => ({ ...c, servedCount: c.servedCount || 0 })));
-          break;
-        case 'SYSTEM_RESET':
-          setCounters(message.data.counters.map(c => ({ ...c, servedCount: 0 })));
-          break;
-      }
-    };
-
-    ws.onerror = (error) => {
-      console.error('WebSocket error:', error);
-      setConnected(false);
-      try { ws.close(); } catch {}
-    };
-
-    ws.onclose = () => {
-      console.log('Disconnected from server');
-      setConnected(false);
-      const delay = Math.min(retryDelayRef.current, 5000);
-      setTimeout(connectWebSocket, delay);
-      retryDelayRef.current = Math.min(delay * 2, 5000);
-    };
-
-    wsRef.current = ws;
-  };
 
   const exportRegistrationsCsv = () => {
     try {
@@ -129,56 +67,25 @@ export default function Admin() {
     }
   };
 
-  const reconnect = () => {
-    try {
-      if (wsRef.current) {
-        wsRef.current.onclose = null;
-        wsRef.current.close();
-      }
-    } catch {}
-    setTimeout(connectWebSocket, 50);
-  };
+  const reconnect = () => window.location.reload();
 
   const resetSystem = () => {
     if (confirm('⚠️ Reset entire queue system? This will:\n- Clear all counters\n- Reset queue numbers to 1\n- Clear all data\n\nThis action cannot be undone.')) {
-      if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
-        wsRef.current.send(JSON.stringify({ type: 'RESET_SYSTEM' }));
-        alert('✅ System has been reset successfully!');
-      }
+  apiResetSystem().then(() => alert('✅ System has been reset successfully!'));
     }
   };
 
   const clearCounter = (counterId) => {
     if (confirm(`Clear Counter ${counterId}?`)) {
-      if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
-        wsRef.current.send(JSON.stringify({
-          type: 'CLEAR_COUNTER',
-          counterId
-        }));
-      }
+  apiClearCounter(counterId);
     }
   };
 
-  const callNext = (counterId) => {
-    if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) {
-      alert('Not connected to server.');
-      return;
-    }
-    wsRef.current.send(JSON.stringify({
-      type: 'CALL_NEXT',
-      counterId
-    }));
-  };
+  const callNext = (counterId) => apiCallNext(counterId);
 
   const clearAllCounters = () => {
-    if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) {
-      alert('Not connected to server.');
-      return;
-    }
     if (confirm('Clear ALL counters?')) {
-      counters.forEach(c => {
-        wsRef.current.send(JSON.stringify({ type: 'CLEAR_COUNTER', counterId: c.id }));
-      });
+  counters.forEach(c => apiClearCounter(c.id));
     }
   };
 

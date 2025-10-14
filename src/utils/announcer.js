@@ -2,6 +2,7 @@
 // Exports helpers to unlock speech, check availability, and speak a message multiple times.
 
 let voicesReadyPromise;
+let sharedAudioCtx = null;
 function waitForVoices(timeoutMs = 2000) {
 	if (typeof window === 'undefined' || !window.speechSynthesis) {
 		return Promise.resolve();
@@ -36,6 +37,14 @@ export function unlockSpeech() {
 		const u = new SpeechSynthesisUtterance('');
 		u.volume = 0;
 		window.speechSynthesis.speak(u);
+		// also prime AudioContext
+		const AudioCtx = window.AudioContext || window.webkitAudioContext;
+		if (AudioCtx) {
+			if (!sharedAudioCtx) sharedAudioCtx = new AudioCtx();
+			if (sharedAudioCtx.state === 'suspended') {
+				sharedAudioCtx.resume().catch(() => {});
+			}
+		}
 	} catch {}
 }
 
@@ -43,18 +52,21 @@ export async function beepFallback(durationMs = 250, frequency = 800, volume = 0
 	try {
 		const AudioCtx = window.AudioContext || window.webkitAudioContext;
 		if (!AudioCtx) return;
-		const ctx = new AudioCtx();
-		const o = ctx.createOscillator();
-		const g = ctx.createGain();
+		if (!sharedAudioCtx) sharedAudioCtx = new AudioCtx();
+		if (sharedAudioCtx.state === 'suspended') {
+			try { await sharedAudioCtx.resume(); } catch {}
+		}
+		const o = sharedAudioCtx.createOscillator();
+		const g = sharedAudioCtx.createGain();
 		o.type = 'sine';
 		o.frequency.value = frequency;
 		g.gain.value = volume;
 		o.connect(g);
-		g.connect(ctx.destination);
+		g.connect(sharedAudioCtx.destination);
 		o.start();
 		await new Promise(r => setTimeout(r, durationMs));
 		o.stop();
-		ctx.close();
+		// do not close shared context so future beeps work
 	} catch {}
 }
 

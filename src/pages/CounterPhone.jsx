@@ -1,125 +1,37 @@
 import { useState, useEffect, useRef } from 'react';
 import { Smartphone, Phone, PhoneCall, CheckCircle2, WifiOff, Wifi, Home, X, ToggleLeft, ToggleRight } from 'lucide-react';
 import { Link } from 'react-router-dom';
-
-const isDev = import.meta && import.meta.env && import.meta.env.DEV;
-const host = (() => {
-  try {
-    return window.location.hostname === 'localhost' ? '127.0.0.1' : window.location.hostname;
-  } catch {
-    return '127.0.0.1';
-  }
-})();
-const WS_BASE = (() => {
-  const override = import.meta?.env?.VITE_WS_URL;
-  if (override && typeof override === 'string' && override.trim()) {
-    return override.replace(/\/$/, '');
-  }
-  if (isDev) return `ws://${host}:3001`;
-  const proto = location.protocol === 'https:' ? 'wss' : 'ws';
-  const hostport = location.host;
-  return `${proto}://${hostport}`;
-})();
-const WS_URL = `${WS_BASE}/ws`;
+import { subscribeState, callNext as apiCallNext, clearCounter as apiClearCounter, setStatus as apiSetStatus } from '../utils/api';
 
 export default function CounterPhone() {
   const [selectedCounter, setSelectedCounter] = useState(null);
   const [currentNumber, setCurrentNumber] = useState(0);
-  const [connected, setConnected] = useState(false);
+  const [connected, setConnected] = useState(true);
   const [isActive, setIsActive] = useState(false);
-  const wsRef = useRef(null);
-  const retryDelayRef = useRef(500);
+  const unsubRef = useRef(null);
 
   useEffect(() => {
-    connectWebSocket();
-    return () => {
-      if (wsRef.current) {
-        wsRef.current.close();
-      }
-    };
-  }, []);
-
-  const connectWebSocket = () => {
-    const ws = new WebSocket(WS_URL);
-    
-    ws.onopen = () => {
-      console.log('Connected to server');
-      setConnected(true);
-      retryDelayRef.current = 500;
-      ws.send(JSON.stringify({ type: 'GET_STATE' }));
-    };
-
-    ws.onmessage = (event) => {
-      const message = JSON.parse(event.data);
-      
-      switch(message.type) {
-        case 'INITIAL_STATE':
-        case 'STATE_UPDATE':
-          if (selectedCounter) {
-            const counter = message.data.counters.find(c => c.id === selectedCounter);
-            if (counter) {
-              setCurrentNumber(counter.currentNumber);
-              setIsActive(!!counter.isActive);
-            }
+    let mounted = true;
+    (async () => {
+      const unsub = await subscribeState((state) => {
+        const counters = state?.counters || [];
+        if (!mounted) return;
+        if (selectedCounter) {
+          const counter = counters.find(c => c.id === selectedCounter);
+          if (counter) {
+            setCurrentNumber(counter.currentNumber);
+            setIsActive(!!counter.isActive);
           }
-          break;
-        case 'NUMBER_CALLED':
-          if (selectedCounter && message.data.counterId === selectedCounter) {
-            // set occupied indicator (we use currentNumber>0 as occupied)
-            setCurrentNumber(1);
-          }
-          break;
-        // ANNOUNCE messages removed — server no longer requests client-side speech
-        case 'COUNTER_CLEARED':
-          if (selectedCounter && message.data.counterId === selectedCounter) {
-            setCurrentNumber(0);
-            setIsActive(false);
-          }
-          break;
-        case 'COUNTER_STATUS_UPDATED':
-          if (selectedCounter && message.data.counterId === selectedCounter) {
-            const c = message.data.counters.find(x => x.id === selectedCounter);
-            if (c) {
-              setCurrentNumber(c.currentNumber);
-              setIsActive(!!c.isActive);
-            }
-          }
-          break;
-        case 'SYSTEM_RESET':
-          setCurrentNumber(0);
-          break;
-      }
-    };
-
-    ws.onerror = (error) => {
-      console.error('WebSocket error:', error);
-      setConnected(false);
-      try { ws.close(); } catch {}
-    };
-
-    ws.onclose = () => {
-      console.log('Disconnected from server');
-      setConnected(false);
-      const delay = Math.min(retryDelayRef.current, 5000);
-      setTimeout(connectWebSocket, delay);
-      retryDelayRef.current = Math.min(delay * 2, 5000);
-    };
-
-    wsRef.current = ws;
-  };
+        }
+        setConnected(true);
+      });
+      unsubRef.current = unsub;
+    })();
+    return () => { try { unsubRef.current && unsubRef.current(); } catch {}; mounted = false; };
+  }, [selectedCounter]);
 
   const callNext = () => {
-    if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) {
-      alert('Not connected to server. Please check your connection.');
-      return;
-    }
-
-    wsRef.current.send(JSON.stringify({
-      type: 'CALL_NEXT',
-      counterId: selectedCounter
-    }));
-
-  // calling next updates counter state on server and displays; no voice announcement
+  apiCallNext(selectedCounter);
 
     if (navigator.vibrate) {
       navigator.vibrate(200);
@@ -127,22 +39,11 @@ export default function CounterPhone() {
   };
 
   const clearCounter = () => {
-    if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
-      wsRef.current.send(JSON.stringify({
-        type: 'CLEAR_COUNTER',
-        counterId: selectedCounter
-      }));
-    }
+  apiClearCounter(selectedCounter);
   };
 
   const toggleStatus = () => {
-    if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
-      wsRef.current.send(JSON.stringify({
-        type: 'SET_STATUS',
-        counterId: selectedCounter,
-        isActive: !isActive
-      }));
-    }
+    apiSetStatus(selectedCounter, !isActive);
   };
 
   if (!selectedCounter) {
