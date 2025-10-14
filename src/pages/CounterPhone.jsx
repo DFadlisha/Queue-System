@@ -3,9 +3,24 @@ import { Smartphone, Phone, PhoneCall, CheckCircle2, WifiOff, Wifi, Home, X, Tog
 import { Link } from 'react-router-dom';
 
 const isDev = import.meta && import.meta.env && import.meta.env.DEV;
-const WS_URL = isDev
-  ? `ws://${window.location.hostname}:3001/ws`
-  : `${location.protocol === 'https:' ? 'wss' : 'ws'}://${window.location.host}/ws`;
+const host = (() => {
+  try {
+    return window.location.hostname === 'localhost' ? '127.0.0.1' : window.location.hostname;
+  } catch {
+    return '127.0.0.1';
+  }
+})();
+const WS_BASE = (() => {
+  const override = import.meta?.env?.VITE_WS_URL;
+  if (override && typeof override === 'string' && override.trim()) {
+    return override.replace(/\/$/, '');
+  }
+  if (isDev) return `ws://${host}:3001`;
+  const proto = location.protocol === 'https:' ? 'wss' : 'ws';
+  const hostport = location.host;
+  return `${proto}://${hostport}`;
+})();
+const WS_URL = `${WS_BASE}/ws`;
 
 export default function CounterPhone() {
   const [selectedCounter, setSelectedCounter] = useState(null);
@@ -13,6 +28,7 @@ export default function CounterPhone() {
   const [connected, setConnected] = useState(false);
   const [isActive, setIsActive] = useState(false);
   const wsRef = useRef(null);
+  const retryDelayRef = useRef(500);
 
   useEffect(() => {
     connectWebSocket();
@@ -29,6 +45,7 @@ export default function CounterPhone() {
     ws.onopen = () => {
       console.log('Connected to server');
       setConnected(true);
+      retryDelayRef.current = 500;
       ws.send(JSON.stringify({ type: 'GET_STATE' }));
     };
 
@@ -77,12 +94,15 @@ export default function CounterPhone() {
     ws.onerror = (error) => {
       console.error('WebSocket error:', error);
       setConnected(false);
+      try { ws.close(); } catch {}
     };
 
     ws.onclose = () => {
       console.log('Disconnected from server');
       setConnected(false);
-      setTimeout(connectWebSocket, 3000);
+      const delay = Math.min(retryDelayRef.current, 5000);
+      setTimeout(connectWebSocket, delay);
+      retryDelayRef.current = Math.min(delay * 2, 5000);
     };
 
     wsRef.current = ws;
@@ -152,7 +172,7 @@ export default function CounterPhone() {
               🔒 Staff Only Access
             </h2>
             <div className="grid grid-cols-2 gap-4">
-              {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((num) => (
+              {[1, 2, 3, 4, 5, 6, 7, 8].map((num) => (
                 <button
                   key={num}
                   onClick={() => setSelectedCounter(num)}

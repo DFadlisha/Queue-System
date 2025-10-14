@@ -1,7 +1,21 @@
-import { Link } from 'react-router-dom';
+import React from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import { Smartphone, Monitor, Settings } from 'lucide-react';
 
 export default function Home() {
+  const navigate = useNavigate();
+
+  // Auto-redirect when provided a role parameter in the link, e.g. ?role=display|counter|admin
+  // This lets you share one link per role that opens the correct page automatically.
+  React.useEffect(() => {
+    try {
+      const params = new URLSearchParams(window.location.search);
+      const role = (params.get('role') || '').toLowerCase();
+      if (role === 'display') navigate('/display', { replace: true });
+      else if (role === 'counter') navigate('/counter', { replace: true });
+      else if (role === 'admin') navigate('/admin', { replace: true });
+    } catch {}
+  }, [navigate]);
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-900 via-blue-900 to-purple-900 p-8">
       <div className="max-w-4xl mx-auto">

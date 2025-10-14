@@ -4,13 +4,28 @@ import { Link } from 'react-router-dom';
 import announceTimes, { unlockSpeech, isSpeechAvailable, beepFallback, speechSelfTest } from '../utils/announcer';
 
 const isDev = import.meta && import.meta.env && import.meta.env.DEV;
-const WS_URL = isDev
-  ? `ws://${window.location.hostname}:3001/ws`
-  : `${location.protocol === 'https:' ? 'wss' : 'ws'}://${window.location.host}/ws`;
+const host = (() => {
+  try {
+    return window.location.hostname === 'localhost' ? '127.0.0.1' : window.location.hostname;
+  } catch {
+    return '127.0.0.1';
+  }
+})();
+const WS_BASE = (() => {
+  const override = import.meta?.env?.VITE_WS_URL;
+  if (override && typeof override === 'string' && override.trim()) {
+    return override.replace(/\/$/, ''); // strip trailing slash
+  }
+  if (isDev) return `ws://${host}:3001`;
+  const proto = location.protocol === 'https:' ? 'wss' : 'ws';
+  const hostport = location.host; // includes port if present
+  return `${proto}://${hostport}`;
+})();
+const WS_URL = `${WS_BASE}/ws`;
 
 export default function DisplayScreen() {
   const [counters, setCounters] = useState(
-    Array.from({ length: 10 }, (_, i) => ({
+    Array.from({ length: 8 }, (_, i) => ({
       id: i + 1,
       currentNumber: 0,
       isActive: false
@@ -21,8 +36,12 @@ export default function DisplayScreen() {
     try { return localStorage.getItem('soundReady') === '1'; } catch { return false; }
   });
   const [speechSupported, setSpeechSupported] = useState(true);
+  const [tvMode, setTvMode] = useState(() => {
+    try { return localStorage.getItem('tvMode') === '1'; } catch { return false; }
+  });
   
   const wsRef = useRef(null);
+  const retryDelayRef = useRef(500); // start fast, then back off up to 5s
   const prevCountersRef = useRef(counters);
   
 
@@ -40,17 +59,59 @@ export default function DisplayScreen() {
       } catch (e) {}
       window.removeEventListener('click', unlock);
       window.removeEventListener('touchstart', unlock);
+      window.removeEventListener('pointerdown', unlock);
     };
     window.addEventListener('click', unlock);
     window.addEventListener('touchstart', unlock, { passive: true });
+    window.addEventListener('pointerdown', unlock, { passive: true });
     return () => {
       if (wsRef.current) {
         wsRef.current.close();
       }
       window.removeEventListener('click', unlock);
       window.removeEventListener('touchstart', unlock);
+      window.removeEventListener('pointerdown', unlock);
     };
   }, []);
+
+  useEffect(() => {
+    const onKey = (e) => {
+      if (e.key.toLowerCase() === 't') {
+        toggleTvMode();
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
+
+  const toggleTvMode = async () => {
+    const next = !tvMode;
+    setTvMode(next);
+    try { localStorage.setItem('tvMode', next ? '1' : '0'); } catch {}
+    // try fullscreen for TV mode
+    try {
+      if (next) {
+        if (document.fullscreenElement == null) {
+          await document.documentElement.requestFullscreen();
+        }
+      } else if (document.fullscreenElement) {
+        await document.exitFullscreen();
+      }
+    } catch {}
+  };
+
+  // Speak or beep fallback depending on availability/unlock state
+  const safeAnnounce = async (text, times = 3) => {
+    if (!speechSupported || !soundReady) {
+      // beep a few times as fallback
+      for (let i = 0; i < Math.max(1, times); i++) {
+        try { await beepFallback(200, 880, 0.4); } catch {}
+        await new Promise(r => setTimeout(r, 200));
+      }
+      return;
+    }
+    try { await announceTimes(text, times, { volume: 1 }); } catch { /* ignore */ }
+  };
 
   const connectWebSocket = () => {
     const ws = new WebSocket(WS_URL);
@@ -58,6 +119,7 @@ export default function DisplayScreen() {
     ws.onopen = () => {
       console.log('Connected to server');
       setConnected(true);
+      retryDelayRef.current = 500; // reset backoff on success
       ws.send(JSON.stringify({ type: 'GET_STATE' }));
     };
 
@@ -77,13 +139,8 @@ export default function DisplayScreen() {
             const wasOccupied = p.isActive && p.currentNumber > 0;
             const nowOccupied = c.isActive && c.currentNumber > 0;
             if (wasOccupied && !nowOccupied) {
-              // counter became available -> speak announcement 3 times
-              try {
-                announceTimes(`Counter ${c.id} is now available`, 3);
-              } catch (e) {
-                // swallow errors from speech API
-                console.warn('Announce failed', e);
-              }
+              // counter became available -> announce or beep 3 times
+              safeAnnounce(`Counter ${c.id} is now available`, 3);
             }
           });
 
@@ -97,14 +154,14 @@ export default function DisplayScreen() {
           // find the counter that initiated the call (if provided)
           const calledId = message.data.counterId;
           if (calledId) {
-            try { announceTimes(`Please proceed to counter ${calledId}`, 3); } catch (e) { }
+            safeAnnounce(`Please proceed to counter ${calledId}`, 3);
           }
           incomingCall.forEach((c) => {
             const p = prevCall.find(x => x.id === c.id) || { isActive: false, currentNumber: 0 };
             const wasOccupied = p.isActive && p.currentNumber > 0;
             const nowOccupied = c.isActive && c.currentNumber > 0;
             if (wasOccupied && !nowOccupied) {
-              try { announceTimes(`Counter ${c.id} is now available`, 3); } catch (e) { }
+              safeAnnounce(`Counter ${c.id} is now available`, 3);
             }
           });
           prevCountersRef.current = incomingCall;
@@ -139,12 +196,15 @@ export default function DisplayScreen() {
     ws.onerror = (error) => {
       console.error('WebSocket error:', error);
       setConnected(false);
+      try { ws.close(); } catch {}
     };
 
     ws.onclose = () => {
       console.log('Disconnected from server');
       setConnected(false);
-      setTimeout(connectWebSocket, 3000);
+      const delay = Math.min(retryDelayRef.current, 5000);
+      setTimeout(connectWebSocket, delay);
+      retryDelayRef.current = Math.min(delay * 2, 5000);
     };
 
     wsRef.current = ws;
@@ -178,6 +238,13 @@ export default function DisplayScreen() {
       } text-white font-semibold z-20`}>
         {connected ? <Wifi size={20} /> : <WifiOff size={20} />}
         {connected ? 'Connected' : 'Disconnected'}
+      </div>
+
+      {/* TV Mode toggle */}
+      <div className="absolute top-4 right-40 p-3 rounded-lg bg-black/40 text-white font-semibold z-20 cursor-pointer select-none"
+           onClick={toggleTvMode}
+           title="Toggle TV Mode (fullscreen). Shortcut: T">
+        {tvMode ? 'TV Mode: On' : 'TV Mode: Off'}
       </div>
 
       {/* Voice announcements enabled on events */}
@@ -218,15 +285,9 @@ export default function DisplayScreen() {
           <p className="text-blue-200 text-2xl">Please watch for your number</p>
         </div>
 
-        {/* L-Shape Layout (true alphabet L):
-            - Left vertical bar: counters 1–6 (full height)
-            - Bottom horizontal bar: counters 7–10 (full width)
-            - Top-right: info panel fills remaining space
-        */}
-        {(() => {
-          const leftColumn = counters.slice(0, 6);
-          const bottomRow = counters.slice(6);
-          const Tile = ({ counter }) => {
+        {/* Even grid layout: 4 columns x 2 rows for 8 counters */}
+        <div className={`grid gap-6 ${tvMode ? 'gap-5' : 'gap-6'} grid-cols-2 md:grid-cols-4`}>
+          {counters.map((counter) => {
             const isOccupied = counter.isActive && counter.currentNumber > 0;
             return (
               <div key={counter.id} className="rounded-2xl p-6 text-center bg-white/5">
@@ -239,51 +300,8 @@ export default function DisplayScreen() {
                 </div>
               </div>
             );
-          };
-
-          return (
-            <div className="flex flex-col gap-8 max-h-[70vh] overflow-auto pr-2">
-              {/* Main grid: left column + top-right info, then bottom row spanning full width */}
-              <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,3fr)] gap-6 items-start">
-                {/* Left vertical bar (counters 1–6) */}
-                <div className="flex flex-col gap-6 xl:self-start">
-                  {leftColumn.map(c => <Tile key={c.id} counter={c} />)}
-                </div>
-
-                {/* Top-right info panel */}
-                <div className="space-y-6">
-                  <div className="bg-white bg-opacity-10 rounded-2xl p-8 backdrop-blur-sm">
-                    <h2 className="text-white text-3xl font-bold mb-6">🎯 Currently Serving</h2>
-                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                      {counters.filter(c => c.isActive).map((counter) => (
-                        <div key={counter.id} className="bg-yellow-500 rounded-xl p-4 text-center animate-pulse">
-                          <div className="text-white text-xl font-bold">Counter {counter.id}</div>
-                          <div className="text-yellow-100 text-sm">Occupied</div>
-                        </div>
-                      ))}
-                      {counters.filter(c => c.isActive).length === 0 && (
-                        <div className="col-span-full text-center text-white text-xl py-4">
-                          No active counters at the moment
-                        </div>
-                      )}
-                    </div>
-                  </div>
-
-                  <div className="bg-gradient-to-r from-yellow-500 to-orange-500 rounded-2xl p-6 text-center">
-                    <p className="text-white text-2xl font-semibold">
-                      📢 Please proceed to your counter when your number is called
-                    </p>
-                  </div>
-                </div>
-
-                {/* Bottom horizontal bar (counters 7–10) spanning both columns */}
-                <div className="col-span-2 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-                  {bottomRow.map(c => <Tile key={c.id} counter={c} />)}
-                </div>
-              </div>
-            </div>
-          );
-        })()}
+          })}
+        </div>
 
   {/* Footer note removed: voice announcements are enabled */}
       </div>

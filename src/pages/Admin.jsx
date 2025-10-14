@@ -1,49 +1,50 @@
 import { useState, useEffect, useRef } from 'react';
-import { Settings, WifiOff, Wifi, Home, RefreshCw, Trash2, Activity, PhoneCall, RefreshCcw } from 'lucide-react';
+import { Settings, Home, RefreshCw, RefreshCcw, Trash2, Activity, PhoneCall } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 const isDev = import.meta && import.meta.env && import.meta.env.DEV;
-const WS_URL = isDev
-  ? `ws://${window.location.hostname}:3001/ws`
-  : `${location.protocol === 'https:' ? 'wss' : 'ws'}://${window.location.host}/ws`;
+const host = (() => {
+  try {
+    return window.location.hostname === 'localhost' ? '127.0.0.1' : window.location.hostname;
+  } catch (error) {
+    return '127.0.0.1';
+  }
+})();
+
+const WS_BASE = (() => {
+  const override = import.meta?.env?.VITE_WS_URL;
+  if (override && typeof override === 'string' && override.trim()) {
+    return override.replace(/\/$/, '');
+  }
+  if (isDev) return `ws://${host}:3001`;
+  const proto = location.protocol === 'https:' ? 'wss' : 'ws';
+  const hostport = location.host;
+  return `${proto}://${hostport}`;
+})();
+const WS_URL = `${WS_BASE}/ws`;
 
 export default function Admin() {
-  const [counters, setCounters] = useState(
-    Array.from({ length: 10 }, (_, i) => ({
-      id: i + 1,
-      currentNumber: 0,
-      isActive: false,
-      servedCount: 0 // number of customers served at this counter
-    }))
-  );
   const [connected, setConnected] = useState(false);
-  const [stats, setStats] = useState({
-    totalServed: 0,
-    activeCounters: 0,
-    servedToday: 0
-  });
+  const [counters, setCounters] = useState([]);
   const [showActiveOnly, setShowActiveOnly] = useState(false);
   const wsRef = useRef(null);
+  const retryDelayRef = useRef(500);
+
+  const stats = {
+    totalServed: counters.reduce((sum, c) => sum + (c.servedCount || 0), 0),
+    activeCounters: counters.filter(c => c.isActive).length,
+    servedToday: counters.reduce((sum, c) => sum + (c.servedCount || 0), 0)
+  };
 
   useEffect(() => {
     connectWebSocket();
     return () => {
       if (wsRef.current) {
+        wsRef.current.onclose = null;
         wsRef.current.close();
       }
     };
   }, []);
-
-  useEffect(() => {
-    const activeCount = counters.filter(c => c.isActive).length;
-    const totalServed = counters.reduce((s, c) => s + (c.servedCount || 0), 0);
-    setStats(prev => ({
-      ...prev,
-      totalServed: totalServed,
-      activeCounters: activeCount,
-      servedToday: totalServed
-    }));
-  }, [counters]);
 
   const connectWebSocket = () => {
     const ws = new WebSocket(WS_URL);
@@ -51,6 +52,8 @@ export default function Admin() {
     ws.onopen = () => {
       console.log('Connected to server');
       setConnected(true);
+      retryDelayRef.current = 500;
+      // request state
       ws.send(JSON.stringify({ type: 'GET_STATE' }));
     };
 
@@ -82,12 +85,15 @@ export default function Admin() {
     ws.onerror = (error) => {
       console.error('WebSocket error:', error);
       setConnected(false);
+      try { ws.close(); } catch {}
     };
 
     ws.onclose = () => {
       console.log('Disconnected from server');
       setConnected(false);
-      setTimeout(connectWebSocket, 3000);
+      const delay = Math.min(retryDelayRef.current, 5000);
+      setTimeout(connectWebSocket, delay);
+      retryDelayRef.current = Math.min(delay * 2, 5000);
     };
 
     wsRef.current = ws;
@@ -199,7 +205,6 @@ export default function Admin() {
           <div className={`p-4 rounded-lg flex items-center gap-2 ${
             connected ? 'bg-green-500' : 'bg-red-500'
           } text-white font-semibold`}>
-            {connected ? <Wifi size={24} /> : <WifiOff size={24} />}
             <span className="text-lg">{connected ? 'Connected' : 'Disconnected'}</span>
           </div>
         </div>
@@ -230,6 +235,8 @@ export default function Admin() {
             <p className="text-4xl font-bold text-purple-600">{stats.servedToday || '-'}</p>
           </div>
         </div>
+
+        {/* Admin access: no PIN required in offline mode */}
 
         {/* Quick Actions */}
         <div className="bg-white rounded-xl p-6 shadow-lg mb-8">
@@ -379,20 +386,9 @@ export default function Admin() {
           </div>
         </div>
 
-        {/* System Info */}
-        <div className="mt-8 bg-white bg-opacity-10 backdrop-blur-sm rounded-xl p-6 text-white">
-          <h3 className="text-xl font-bold mb-4">📊 System Information</h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-            <div>
-              <p><strong>WebSocket:</strong> {connected ? '✅ Connected' : '❌ Disconnected'}</p>
-              <p><strong>Server:</strong> {WS_URL}</p>
-            </div>
-            <div>
-              <p><strong>Announcements:</strong> 🔊 On Display screen</p>
-              <p><strong>Auto-Refresh:</strong> ✅ Real-time updates</p>
-            </div>
-          </div>
-        </div>
+        {/* Share access removed for offline/local-only mode */}
+
+        {/* System Info removed */}
       </div>
     </div>
   );

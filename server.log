@@ -1,0 +1,9 @@
+Server running on http://0.0.0.0:3001
+WebSocket server ready at ws://<host>:3001/ws
+Accessible on your LAN at:
+  http://10.48.5.3:3001/
+Client connected
+Client disconnected
+Client connected
+Client disconnected
+^C
