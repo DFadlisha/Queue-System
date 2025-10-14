@@ -33,7 +33,7 @@ Not needed. The included API routes on Vercel plus KV are enough.
 - Local dev: `npm run dev` (Vite) and deploy to Vercel with the KV integration enabled.
 
 ## Environment
-- See `.env.example` and set KV env on Vercel.
+- Only Vercel KV environment variables are required and are added automatically when you enable the KV integration on your Vercel project.
 
 ---
 If you need, I can set up a minimal Render/Railway config for the backend and give you the `wss://` to paste into Vercel.

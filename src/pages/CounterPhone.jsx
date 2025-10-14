@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Smartphone, Phone, PhoneCall, CheckCircle2, WifiOff, Wifi, Home, X, ToggleLeft, ToggleRight } from 'lucide-react';
+import { Smartphone, PhoneCall, WifiOff, Wifi, Home, X, ToggleLeft, ToggleRight } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { subscribeState, callNext as apiCallNext, clearCounter as apiClearCounter, setStatus as apiSetStatus } from '../utils/api';
 
