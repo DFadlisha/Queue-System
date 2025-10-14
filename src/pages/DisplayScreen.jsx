@@ -27,10 +27,14 @@ export default function DisplayScreen() {
   const unsubRef = useRef(null);
   // Track last NUMBER_CALLED event timestamp so we announce each call only once (3 repeats inside safeAnnounce)
   const lastAnnouncedEventTsRef = useRef(0);
+  // Track in-progress announcement & recent messages to suppress duplicates
+  const isAnnouncingRef = useRef(false);
+  const lastMsgRef = useRef({ text: '', ts: 0 });
   
 
   useEffect(() => {
     // subscribe to realtime state
+    if (unsubRef.current) return; // Guard against React StrictMode double effect in dev
     (async () => {
       const unsub = await subscribeState((state) => {
         setLastAttemptTs(Date.now());
@@ -131,15 +135,26 @@ export default function DisplayScreen() {
 
   // Speak or beep fallback depending on availability/unlock state
   const safeAnnounce = async (text, times = 3) => {
+    // Suppress if same text announced within last 4 seconds
+    const now = Date.now();
+    if (lastMsgRef.current.text === text && (now - lastMsgRef.current.ts) < 4000) {
+      return;
+    }
+    // If an announcement currently running, skip (prevents overlap)
+    if (isAnnouncingRef.current) return;
+    isAnnouncingRef.current = true;
+    lastMsgRef.current = { text, ts: now };
     if (!speechSupported || !soundReady) {
       // beep a few times as fallback
       for (let i = 0; i < Math.max(1, times); i++) {
         try { await beepFallback(200, 880, 0.4); } catch {}
         await new Promise(r => setTimeout(r, 200));
       }
+      isAnnouncingRef.current = false;
       return;
     }
     try { await announceTimes(text, times, { volume: 1 }); } catch { /* ignore */ }
+    isAnnouncingRef.current = false;
   };
 
   // Announce when NUMBER_CALLED detected via state transitions (handled in subscribe above)
