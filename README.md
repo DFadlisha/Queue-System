@@ -1,8 +1,7 @@
 # Queue System – Quick Deploy
 
-This app is a Vite + React frontend. For Vercel-only hosting with multi-device sync and no custom server, it now uses simple serverless API routes backed by Vercel KV. You can:
-- Host everything on Vercel (frontend + API)
-- (Legacy) Use your own Node + WebSocket backend (`server.js`) for LAN-only mode
+This app is a Vite + React frontend. For Vercel-only hosting with multi-device sync and no custom server, it uses simple serverless API routes backed by Vercel KV.
+You only deploy to Vercel—no separate Node server is required.
 
 ## Fastest way to get a live link (Vercel web UI)
 1. Push this folder to a GitHub repo (or create one and copy files).
@@ -14,7 +13,6 @@ This app is a Vite + React frontend. For Vercel-only hosting with multi-device s
   - VERCEL_KV_REST_API_URL (auto if you add KV integration)
   - VERCEL_KV_REST_API_TOKEN (auto if you add KV integration)
   - VERCEL_KV_REST_API_READ_ONLY_TOKEN (optional)
-  - Legacy WebSocket backend (optional): `VITE_WS_URL = wss://your-public-ws-host` (or `ws://192.168.x.x:3001` for LAN). If set, you can still run the old Node backend.
 7. Deploy → Vercel will give you a live URL like: `https://<project-name>.vercel.app`
 
 Or use the CLI any time:
@@ -26,23 +24,16 @@ vercel --prod
 
 > Important: Vercel can’t host a long‑lived WebSocket server in serverless functions. The included API routes use polling + Vercel KV to sync state across devices without any custom server.
 
-Remember to add `VITE_WS_URL` in the Vercel project settings (Environment Variables) before the production deploy.
+No other environment variables are required.
 
-## Backend hosting options (for public access)
-- Render/Railway/Fly.io: Run `node server.js` 24/7
-- Cloudflare Tunnel or ngrok: Expose your local port 3001 to the internet (get a public `wss://` URL). Then set `VITE_WS_URL` to that URL.
+## Backend hosting options
+Not needed. The included API routes on Vercel plus KV are enough.
 
 ## Dev and local use
-- Serverless mode: `npm run dev` (local) and deploy to Vercel with the KV integration enabled.
-- Legacy backend mode:
-  - Start backend + serve built frontend:
-    ```bash
-    npm start
-    ```
-  - Open: `http://localhost:3001/admin` and `http://localhost:3001/display`
+- Local dev: `npm run dev` (Vite) and deploy to Vercel with the KV integration enabled.
 
 ## Environment
-- See `.env.example` and set KV env on Vercel or `VITE_WS_URL` for legacy backend.
+- See `.env.example` and set KV env on Vercel.
 
 ---
 If you need, I can set up a minimal Render/Railway config for the backend and give you the `wss://` to paste into Vercel.
