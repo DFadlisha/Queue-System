@@ -13,6 +13,8 @@ export default function DisplayScreen() {
     }))
   );
   const [connected, setConnected] = useState(false);
+  const [lastError, setLastError] = useState(null);
+  const [lastAttemptTs, setLastAttemptTs] = useState(null);
   const [soundReady, setSoundReady] = useState(() => {
     try { return localStorage.getItem('soundReady') === '1'; } catch { return false; }
   });
@@ -29,24 +31,36 @@ export default function DisplayScreen() {
     // subscribe to realtime state
     (async () => {
       const unsub = await subscribeState((state) => {
-        const inc = state?.counters || [];
-        // detect availability transitions
-        const prev = prevCountersRef.current || [];
-        inc.forEach((c) => {
-          const p = prev.find(x => x.id === c.id) || { isActive: false, currentNumber: 0 };
-          const wasOccupied = p.isActive && p.currentNumber > 0;
-          const nowOccupied = c.isActive && c.currentNumber > 0;
-          if (wasOccupied && !nowOccupied) {
-            safeAnnounce(`Counter ${c.id} is now available`, 3);
-          }
-        });
-        const ev = state?.lastEvent;
-        if (ev?.type === 'NUMBER_CALLED' && ev.counterId) {
-          safeAnnounce(`Please proceed to counter ${ev.counterId}`, 3);
+        setLastAttemptTs(Date.now());
+        if (!state) {
+          setConnected(false);
+          setLastError('No state returned');
+          return;
         }
-        prevCountersRef.current = inc;
-        setCounters(inc);
-        setConnected(true);
+        try {
+          const inc = state?.counters || [];
+          // detect availability transitions
+          const prev = prevCountersRef.current || [];
+          inc.forEach((c) => {
+            const p = prev.find(x => x.id === c.id) || { isActive: false, currentNumber: 0 };
+            const wasOccupied = p.isActive && p.currentNumber > 0;
+            const nowOccupied = c.isActive && c.currentNumber > 0;
+            if (wasOccupied && !nowOccupied) {
+              safeAnnounce(`Counter ${c.id} is now available`, 3);
+            }
+          });
+          const ev = state?.lastEvent;
+          if (ev?.type === 'NUMBER_CALLED' && ev.counterId) {
+            safeAnnounce(`Please proceed to counter ${ev.counterId}`, 3);
+          }
+          prevCountersRef.current = inc;
+          setCounters(inc);
+          setConnected(true);
+          setLastError(null);
+        } catch (e) {
+          setLastError(e?.message || 'Unknown error');
+          setConnected(false);
+        }
       });
       unsubRef.current = unsub;
     })();
@@ -157,6 +171,24 @@ export default function DisplayScreen() {
         {connected ? <Wifi size={20} /> : <WifiOff size={20} />}
         {connected ? 'Connected' : 'Disconnected'}
       </div>
+      {!connected && (
+        <div className="absolute top-20 right-4 w-80 bg-rose-950/70 border border-rose-700 text-rose-100 rounded-xl p-4 text-sm space-y-2 backdrop-blur z-30">
+          <div className="font-semibold">State API Not Reachable</div>
+          <p className="text-rose-200">The display cannot read <code className="font-mono">/api/queue/state</code>. This usually means KV isn’t enabled or the functions returned an error.</p>
+          {lastError && <p className="text-rose-300">Last error: {lastError}</p>}
+          {lastAttemptTs && <p className="text-rose-400">Last attempt: {new Date(lastAttemptTs).toLocaleTimeString()}</p>}
+          <ol className="list-decimal ml-4 space-y-1 text-rose-300">
+            <li>Open <a href="/api/queue/state" target="_blank" rel="noreferrer" className="underline">/api/queue/state</a> in a new tab.</li>
+            <li>If error: go to Vercel Dashboard → Storage → KV → Add Integration.</li>
+            <li>Redeploy after KV integration is added.</li>
+            <li>Refresh this page.</li>
+          </ol>
+          <button
+            onClick={() => { setLastError(null); setConnected(false); }}
+            className="w-full mt-2 bg-rose-700 hover:bg-rose-600 text-white rounded-lg py-2 font-semibold"
+          >Dismiss</button>
+        </div>
+      )}
 
       {/* TV Mode toggle */}
   <div className="absolute top-4 right-40 p-3 rounded-lg bg-black/40 text-white font-semibold z-20 cursor-pointer select-none"
