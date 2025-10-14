@@ -1,4 +1,13 @@
-import { kv } from '@vercel/kv';
+import { Redis } from '@upstash/redis';
+
+function initRedis() {
+  let url = process.env.UPSTASH_REDIS_REST_URL;
+  let token = process.env.UPSTASH_REDIS_REST_TOKEN;
+  if (!url) url = process.env.UPSTASH_REDIS_REST_KV_REST_API_URL || process.env.UPSTASH_REDIS_REST_REDIS_URL;
+  if (!token) token = process.env.UPSTASH_REDIS_REST_KV_REST_API_TOKEN;
+  return new Redis({ url, token });
+}
+const redis = initRedis();
 
 // (Optional) parse body if future reset options are added
 async function parseBody(req) {
@@ -27,6 +36,6 @@ export default async function handler(req, res) {
   // Drain body (ignored)
   await parseBody(req);
   initialState.updatedAt = Date.now();
-  await kv.set('queue:state', initialState);
+  try { await redis.set('queue:state', initialState); } catch (e) { console.error('Redis set error:', e); }
   res.status(200).json(initialState);
 }

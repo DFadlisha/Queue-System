@@ -1,4 +1,13 @@
-import { kv } from '@vercel/kv';
+import { Redis } from '@upstash/redis';
+
+function initRedis() {
+  let url = process.env.UPSTASH_REDIS_REST_URL;
+  let token = process.env.UPSTASH_REDIS_REST_TOKEN;
+  if (!url) url = process.env.UPSTASH_REDIS_REST_KV_REST_API_URL || process.env.UPSTASH_REDIS_REST_REDIS_URL;
+  if (!token) token = process.env.UPSTASH_REDIS_REST_KV_REST_API_TOKEN;
+  return new Redis({ url, token });
+}
+const redis = initRedis();
 
 async function parseBody(req) {
   return new Promise((resolve) => {
@@ -23,7 +32,7 @@ export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
   const { counterId } = (req.body || (await parseBody(req))) || {};
   if (!counterId) return res.status(400).json({ error: 'counterId required' });
-  const state = (await kv.get('queue:state')) || { counters: [] };
+  let state = (await redis.get('queue:state')) || { counters: [] };
   const idx = Number(counterId) - 1;
   state.counters[idx] = {
     ...(state.counters[idx] || { id: Number(counterId), currentNumber: 0, isActive: false, servedCount: 0 }),
@@ -33,6 +42,6 @@ export default async function handler(req, res) {
   };
   state.lastEvent = { type: 'NUMBER_CALLED', counterId, ts: Date.now() };
   state.updatedAt = Date.now();
-  await kv.set('queue:state', state);
+  try { await redis.set('queue:state', state); } catch (e) { console.error('Redis set error:', e); }
   res.status(200).json(state);
 }
