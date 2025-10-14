@@ -211,7 +211,7 @@ export default function DisplayScreen() {
               <div key={counter.id} className="rounded-2xl p-6 text-center bg-white/5">
                 <div className="text-xl font-semibold mb-3 text-white">Counter {counter.id}</div>
                 <div className="flex items-center justify-center">
-                  <div className={`w-28 h-28 rounded-full shadow-lg transition-colors ${isOccupied ? 'bg-red-500' : 'bg-green-500'}`} />
+                  <div className={`w-28 h-28 rounded-full shadow-lg transition-colors ${isOccupied ? 'bg-red-500 blink' : 'bg-green-500'}`} />
                 </div>
                 <div className="mt-3 text-sm text-blue-200">
                   {isOccupied ? 'Occupied' : 'Available'}
