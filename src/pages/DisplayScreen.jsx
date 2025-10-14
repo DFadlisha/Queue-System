@@ -25,6 +25,8 @@ export default function DisplayScreen() {
   
   const prevCountersRef = useRef(counters);
   const unsubRef = useRef(null);
+  // Track last NUMBER_CALLED event timestamp so we announce each call only once (3 repeats inside safeAnnounce)
+  const lastAnnouncedEventTsRef = useRef(0);
   
 
   useEffect(() => {
@@ -51,7 +53,13 @@ export default function DisplayScreen() {
           });
           const ev = state?.lastEvent;
           if (ev?.type === 'NUMBER_CALLED' && ev.counterId) {
-            safeAnnounce(`Please proceed to counter ${ev.counterId}`, 3);
+            // Only announce if this is a NEW event (unique ts) and not already spoken.
+            const eventTs = ev.ts || Date.now();
+            if (eventTs !== lastAnnouncedEventTsRef.current) {
+              lastAnnouncedEventTsRef.current = eventTs;
+              // Announce exactly 3 times.
+              safeAnnounce(`Please proceed to counter ${ev.counterId}`, 3);
+            }
           }
           prevCountersRef.current = inc;
           setCounters(inc);
