@@ -17,7 +17,7 @@ export default function Home() {
     } catch {}
   }, [navigate]);
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-blue-900 to-purple-900 p-8">
+  <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-cyan-950 p-8">
       <div className="max-w-4xl mx-auto">
         <div className="text-center mb-12">
           <h1 className="text-6xl font-bold text-white mb-4">
@@ -32,7 +32,7 @@ export default function Home() {
           {/* Counter Phone */}
           <Link 
             to="/counter" 
-            className="bg-gradient-to-br from-blue-500 to-blue-700 p-8 rounded-2xl text-white hover:scale-105 transition transform shadow-2xl"
+            className="bg-gradient-to-br from-cyan-500 to-cyan-700 p-8 rounded-2xl text-white hover:scale-105 transition transform shadow-2xl"
           >
             <Smartphone className="mx-auto mb-4" size={64} />
             <h2 className="text-3xl font-bold text-center mb-2">
@@ -46,7 +46,7 @@ export default function Home() {
           {/* Display Screen */}
           <Link 
             to="/display" 
-            className="bg-gradient-to-br from-green-500 to-green-700 p-8 rounded-2xl text-white hover:scale-105 transition transform shadow-2xl"
+            className="bg-gradient-to-br from-teal-500 to-teal-700 p-8 rounded-2xl text-white hover:scale-105 transition transform shadow-2xl"
           >
             <Monitor className="mx-auto mb-4" size={64} />
             <h2 className="text-3xl font-bold text-center mb-2">
@@ -60,7 +60,7 @@ export default function Home() {
           {/* Admin Panel */}
           <Link 
             to="/admin" 
-            className="bg-gradient-to-br from-purple-500 to-pink-600 p-8 rounded-2xl text-white hover:scale-105 transition transform shadow-2xl"
+            className="bg-gradient-to-br from-cyan-600 to-teal-600 p-8 rounded-2xl text-white hover:scale-105 transition transform shadow-2xl"
           >
             <Settings className="mx-auto mb-4" size={64} />
             <h2 className="text-3xl font-bold text-center mb-2">

@@ -9,5 +9,9 @@
   "search.exclude": {
     "**/node_modules/**": true
   },
-  "typescript.suggest.autoImports": false
+  "typescript.suggest.autoImports": false,
+  // Silence editor warnings for Tailwind CSS directives (@tailwind, @apply)
+  "css.lint.unknownAtRules": "ignore",
+  "scss.lint.unknownAtRules": "ignore",
+  "less.lint.unknownAtRules": "ignore"
 }

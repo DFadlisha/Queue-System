@@ -144,22 +144,22 @@ export default function DisplayScreen() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-900 via-blue-800 to-purple-900 p-6 relative">
-      <div className="absolute top-4 left-4 z-20">
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-cyan-950 p-6 relative">
+  <div className="absolute top-4 left-4 z-20">
         <Link to="/" className="bg-white bg-opacity-20 text-white p-3 rounded-lg hover:bg-opacity-30 transition block">
           <Home size={24} />
         </Link>
       </div>
 
       <div className={`absolute top-4 right-4 p-3 rounded-lg flex items-center gap-2 ${
-        connected ? 'bg-green-500' : 'bg-red-500'
+        connected ? 'bg-teal-500' : 'bg-rose-500'
       } text-white font-semibold z-20`}>
         {connected ? <Wifi size={20} /> : <WifiOff size={20} />}
         {connected ? 'Connected' : 'Disconnected'}
       </div>
 
       {/* TV Mode toggle */}
-      <div className="absolute top-4 right-40 p-3 rounded-lg bg-black/40 text-white font-semibold z-20 cursor-pointer select-none"
+  <div className="absolute top-4 right-40 p-3 rounded-lg bg-black/40 text-white font-semibold z-20 cursor-pointer select-none"
            onClick={toggleTvMode}
            title="Toggle TV Mode (fullscreen). Shortcut: T">
         {tvMode ? 'TV Mode: On' : 'TV Mode: Off'}
@@ -170,7 +170,7 @@ export default function DisplayScreen() {
       {/* Sound small status chip */}
       <div className="absolute top-4 left-1/2 -translate-x-1/2 z-20">
         {speechSupported ? (
-          <div className={`px-3 py-1 rounded-full text-sm font-semibold ${soundReady ? 'bg-green-600 text-white' : 'bg-yellow-500 text-black'}`}>
+          <div className={`px-3 py-1 rounded-full text-sm font-semibold ${soundReady ? 'bg-teal-600 text-white' : 'bg-amber-500 text-black'}`}>
             {soundReady ? 'Sound: Ready' : 'Sound: Tap Enable'}
           </div>
         ) : (
@@ -182,25 +182,25 @@ export default function DisplayScreen() {
       {speechSupported && !soundReady && (
         <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-30 bg-black/70 text-white px-4 py-3 rounded-xl shadow-lg flex items-center gap-3">
           <span>Click to enable voice announcements</span>
-          <button onClick={handleEnableSound} className="bg-green-500 hover:bg-green-600 text-white font-semibold px-3 py-1 rounded-lg">Enable</button>
+          <button onClick={handleEnableSound} className="bg-teal-500 hover:bg-teal-600 text-white font-semibold px-3 py-1 rounded-lg">Enable</button>
           <Link to="/" className="ml-2 underline text-blue-200">Home</Link>
         </div>
       )}
       {speechSupported && soundReady && (
         <div className="fixed bottom-4 right-4 z-30 bg-black/50 text-white px-3 py-2 rounded-lg shadow-lg flex items-center gap-2">
-          <button onClick={handleTestVoice} className="bg-blue-500 hover:bg-blue-600 text-white font-semibold px-2 py-1 rounded">Test Voice</button>
-          <button onClick={() => beepFallback()} className="bg-gray-500 hover:bg-gray-600 text-white font-semibold px-2 py-1 rounded">Beep</button>
+          <button onClick={handleTestVoice} className="bg-cyan-600 hover:bg-cyan-700 text-white font-semibold px-2 py-1 rounded">Test Voice</button>
+          <button onClick={() => beepFallback()} className="bg-slate-600 hover:bg-slate-700 text-white font-semibold px-2 py-1 rounded">Beep</button>
         </div>
       )}
 
       <div className="max-w-7xl mx-auto">
         <div className="text-center mb-8">
           <div className="flex items-center justify-center gap-4 mb-4">
-            <Monitor size={64} className="text-white" />
+            <Monitor size={64} className="text-teal-300" />
             <h1 className="text-6xl font-bold text-white">Queue Display</h1>
-            <Volume2 size={64} className="text-green-400 animate-pulse" />
+            <Volume2 size={64} className="text-cyan-400 animate-pulse" />
           </div>
-          <p className="text-blue-200 text-2xl">Please watch for your number</p>
+          <p className="text-cyan-200 text-2xl">Please watch for your number</p>
         </div>
 
         {/* Even grid layout: 4 columns x 2 rows for 8 counters */}
@@ -211,7 +211,7 @@ export default function DisplayScreen() {
               <div key={counter.id} className="rounded-2xl p-6 text-center bg-white/5">
                 <div className="text-xl font-semibold mb-3 text-white">Counter {counter.id}</div>
                 <div className="flex items-center justify-center">
-                  <div className={`w-28 h-28 rounded-full shadow-lg transition-colors ${isOccupied ? 'bg-red-500 blink' : 'bg-green-500'}`} />
+                  <div className={`w-28 h-28 rounded-full shadow-lg transition-colors ${isOccupied ? 'bg-rose-500 blink' : 'bg-teal-500'}`} />
                 </div>
                 <div className="mt-3 text-sm text-blue-200">
                   {isOccupied ? 'Occupied' : 'Available'}

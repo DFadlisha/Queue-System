@@ -92,7 +92,7 @@ export default function Admin() {
   // Voice announcement removed — no client-side speech
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-purple-900 via-purple-800 to-pink-900 p-6">
+  <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-cyan-950 p-6">
       <div className="max-w-7xl mx-auto">
         {/* Header */}
         <div className="flex justify-between items-center mb-8">
@@ -105,7 +105,7 @@ export default function Admin() {
                 <Settings size={48} />
                 <h1 className="text-5xl font-bold">Admin Panel</h1>
               </div>
-              <p className="text-purple-200 text-xl mt-2">System Management & Monitoring</p>
+              <p className="text-cyan-200 text-xl mt-2">System Management & Monitoring</p>
             </div>
           </div>
           
@@ -121,7 +121,7 @@ export default function Admin() {
           <div className="bg-white rounded-xl p-6 shadow-lg">
             <div className="flex items-center justify-between mb-2">
               <h3 className="text-gray-600 font-semibold">Total Served</h3>
-              <Activity className="text-blue-500" size={24} />
+              <Activity className="text-cyan-500" size={24} />
             </div>
             <p className="text-4xl font-bold text-blue-600">{stats.totalServed}</p>
           </div>
@@ -129,7 +129,7 @@ export default function Admin() {
           <div className="bg-white rounded-xl p-6 shadow-lg">
             <div className="flex items-center justify-between mb-2">
               <h3 className="text-gray-600 font-semibold">Active Counters</h3>
-              <Activity className="text-green-500" size={24} />
+              <Activity className="text-teal-500" size={24} />
             </div>
             <p className="text-4xl font-bold text-green-600">{stats.activeCounters}</p>
           </div>
@@ -137,7 +137,7 @@ export default function Admin() {
           <div className="bg-white rounded-xl p-6 shadow-lg">
             <div className="flex items-center justify-between mb-2">
               <h3 className="text-gray-600 font-semibold">Last Served</h3>
-              <Activity className="text-purple-500" size={24} />
+              <Activity className="text-cyan-500" size={24} />
             </div>
             <p className="text-4xl font-bold text-purple-600">{stats.servedToday || '-'}</p>
           </div>
@@ -164,7 +164,7 @@ export default function Admin() {
             
             <button
               onClick={() => window.location.reload()}
-              className="flex items-center justify-center gap-3 bg-blue-500 text-white py-4 rounded-lg font-semibold text-lg hover:bg-blue-600 transition"
+              className="flex items-center justify-center gap-3 bg-cyan-600 text-white py-4 rounded-lg font-semibold text-lg hover:bg-cyan-700 transition"
             >
               <RefreshCw size={24} />
               Refresh Page
@@ -175,7 +175,7 @@ export default function Admin() {
               disabled={!connected}
               className={`flex items-center justify-center gap-3 py-4 rounded-lg font-semibold text-lg transition ${
                 connected
-                  ? 'bg-yellow-500 text-white hover:bg-yellow-600'
+                  ? 'bg-amber-500 text-white hover:bg-amber-600'
                   : 'bg-gray-300 text-gray-500 cursor-not-allowed'
               }`}
             >
@@ -185,7 +185,7 @@ export default function Admin() {
 
             <button
               onClick={reconnect}
-              className="flex items-center justify-center gap-3 bg-gray-800 text-white py-4 rounded-lg font-semibold text-lg hover:bg-black transition"
+              className="flex items-center justify-center gap-3 bg-slate-800 text-white py-4 rounded-lg font-semibold text-lg hover:bg-black transition"
             >
               <RefreshCcw size={24} />
               Reconnect
@@ -259,7 +259,7 @@ export default function Admin() {
               >
                 <div className="flex items-center justify-between mb-3">
                   <div className="text-lg font-semibold">Counter {counter.id}</div>
-                  <div className={`w-4 h-4 rounded-full ${counter.isActive ? 'bg-green-500' : 'bg-gray-300'}`} />
+                  <div className={`w-4 h-4 rounded-full ${counter.isActive ? 'bg-teal-500' : 'bg-gray-300'}`} />
                 </div>
 
                 <div className="text-3xl font-bold mb-3 text-gray-800">
@@ -275,7 +275,7 @@ export default function Admin() {
                     onClick={() => callNext(counter.id)}
                     disabled={!connected}
                     className={`w-full py-2 rounded-lg transition text-sm font-semibold flex items-center justify-center gap-2 ${
-                      connected ? 'bg-green-600 text-white hover:bg-green-700' : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                      connected ? 'bg-teal-600 text-white hover:bg-teal-700' : 'bg-gray-300 text-gray-500 cursor-not-allowed'
                     }`}
                   >
                     <PhoneCall size={18} /> Call Next

@@ -48,7 +48,7 @@ export default function CounterPhone() {
 
   if (!selectedCounter) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-600 to-blue-800 p-6">
+    <div className="min-h-screen bg-gradient-to-br from-cyan-700 to-cyan-900 p-6">
         <div className="max-w-2xl mx-auto">
           <div className="flex justify-between items-center mb-4">
             <Link to="/" className="bg-white bg-opacity-20 text-white p-3 rounded-lg hover:bg-opacity-30 transition">
@@ -63,7 +63,7 @@ export default function CounterPhone() {
           </div>
 
           <div className="text-center mb-8">
-            <Smartphone className="mx-auto mb-4 text-white" size={64} />
+            <Smartphone className="mx-auto mb-4 text-teal-200" size={64} />
             <h1 className="text-4xl font-bold text-white mb-2">Counter Phone</h1>
             <p className="text-blue-100 text-xl">Select your counter number</p>
           </div>
@@ -80,7 +80,7 @@ export default function CounterPhone() {
                   disabled={!connected}
                   className={`py-8 px-6 rounded-xl transition text-3xl font-bold shadow-lg active:scale-95 ${
                     connected
-                      ? 'bg-gradient-to-br from-blue-500 to-blue-700 text-white hover:from-blue-600 hover:to-blue-800'
+                      ? 'bg-gradient-to-br from-cyan-600 to-cyan-800 text-white hover:from-cyan-700 hover:to-cyan-900'
                       : 'bg-gray-400 text-gray-600 cursor-not-allowed'
                   }`}
                 >
@@ -95,7 +95,7 @@ export default function CounterPhone() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-green-600 to-green-800 p-6">
+  <div className="min-h-screen bg-gradient-to-br from-teal-700 to-teal-900 p-6">
       <div className="max-w-2xl mx-auto">
         <div className="flex justify-between items-center mb-4">
           <button
@@ -105,7 +105,7 @@ export default function CounterPhone() {
             ← Change Counter
           </button>
           <div className={`p-3 rounded-lg flex items-center gap-2 ${
-            connected ? 'bg-green-700' : 'bg-red-500'
+            connected ? 'bg-teal-700' : 'bg-rose-500'
           } text-white font-semibold`}>
             {connected ? <Wifi size={20} /> : <WifiOff size={20} />}
             {connected ? 'Connected' : 'Disconnected'}
@@ -113,7 +113,7 @@ export default function CounterPhone() {
         </div>
 
         <div className="bg-white rounded-3xl shadow-2xl overflow-hidden">
-          <div className="bg-gradient-to-r from-green-600 to-green-700 text-white p-8 text-center">
+          <div className="bg-gradient-to-r from-teal-600 to-teal-700 text-white p-8 text-center">
             <Smartphone className="mx-auto mb-3" size={48} />
             <h1 className="text-5xl font-bold">Counter {selectedCounter}</h1>
             <p className="text-green-100 text-xl mt-2">Staff Terminal</p>
@@ -124,7 +124,7 @@ export default function CounterPhone() {
               <p className="text-gray-600 text-3xl mb-4">Currently Serving</p>
               <div className={`rounded-2xl p-12 ${
                 currentNumber > 0 
-                  ? 'bg-gradient-to-br from-green-500 to-green-700' 
+                  ? 'bg-gradient-to-br from-teal-500 to-teal-700' 
                   : 'bg-gray-200'
               }`}>
                 <div className={`text-9xl font-bold ${
@@ -141,7 +141,7 @@ export default function CounterPhone() {
                 disabled={!connected}
                 className={`w-full py-8 rounded-2xl transition text-3xl font-bold shadow-xl flex items-center justify-center gap-3 active:scale-95 ${
                   connected
-                    ? 'bg-gradient-to-r from-green-500 to-green-600 text-white hover:from-green-600 hover:to-green-700'
+                    ? 'bg-gradient-to-r from-teal-500 to-teal-600 text-white hover:from-teal-600 hover:to-teal-700'
                     : 'bg-gray-400 text-gray-600 cursor-not-allowed'
                 }`}
               >
@@ -154,7 +154,7 @@ export default function CounterPhone() {
                 disabled={!connected}
                 className={`w-full py-6 rounded-2xl transition text-2xl font-semibold flex items-center justify-center gap-3 active:scale-95 ${
                   connected
-                    ? 'bg-gray-400 text-white hover:bg-gray-500'
+                    ? 'bg-slate-500 text-white hover:bg-slate-600'
                     : 'bg-gray-300 text-gray-500 cursor-not-allowed'
                 }`}
               >
@@ -167,7 +167,7 @@ export default function CounterPhone() {
                 disabled={!connected}
                 className={`w-full py-6 rounded-2xl transition text-2xl font-semibold flex items-center justify-center gap-3 active:scale-95 ${
                   connected
-                    ? (isActive ? 'bg-green-500 text-white hover:bg-green-600' : 'bg-red-500 text-white hover:bg-red-600')
+                    ? (isActive ? 'bg-teal-500 text-white hover:bg-teal-600' : 'bg-rose-500 text-white hover:bg-rose-600')
                     : 'bg-gray-300 text-gray-500 cursor-not-allowed'
                 }`}
               >
@@ -178,13 +178,13 @@ export default function CounterPhone() {
 
             <div className="mt-8 pt-8 border-t-2 border-gray-200">
               <div className="grid grid-cols-2 gap-4 text-center">
-                <div className="bg-blue-50 rounded-xl p-4">
+                <div className="bg-cyan-50 rounded-xl p-4">
                   <p className="text-gray-600 text-lg">Status</p>
-                  <p className="text-blue-600 text-4xl font-bold">{isActive ? 'Occupied' : 'Available'}</p>
+                  <p className="text-cyan-600 text-4xl font-bold">{isActive ? 'Occupied' : 'Available'}</p>
                 </div>
-                <div className="bg-green-50 rounded-xl p-4">
+                <div className="bg-teal-50 rounded-xl p-4">
                   <p className="text-gray-600 text-lg">Your Counter</p>
-                  <p className="text-green-600 text-4xl font-bold">{selectedCounter}</p>
+                  <p className="text-teal-600 text-4xl font-bold">{selectedCounter}</p>
                 </div>
               </div>
             </div>
