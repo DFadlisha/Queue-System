@@ -1,5 +1,6 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
+import { VitePWA } from 'vite-plugin-pwa'
 
 // Dev-only API to sync state across devices on your LAN while running `npm run dev`.
 function devApiPlugin() {
@@ -85,6 +86,34 @@ function devApiPlugin() {
             return sendJson(res, state);
           }
 
+          if (url === '/api/queue/updateCounters' && method === 'POST') {
+            const { count } = await readBody(req);
+            const newCount = parseInt(count, 10);
+
+            if (isNaN(newCount) || newCount < 1) {
+              return sendJson(res, { error: 'Invalid counter count' }, 400);
+            }
+
+            const currentCounters = state.counters || [];
+            let nextCounters = [...currentCounters];
+
+            if (newCount > currentCounters.length) {
+              // Add new counters
+              for (let i = currentCounters.length; i < newCount; i++) {
+                nextCounters.push({ id: i + 1, currentNumber: 0, isActive: false, servedCount: 0 });
+              }
+            } else if (newCount < currentCounters.length) {
+              // Remove counters
+              nextCounters = currentCounters.slice(0, newCount);
+            }
+
+            state.counters = nextCounters;
+            state.lastEvent = { type: 'COUNTERS_UPDATED', count: newCount, ts: Date.now() };
+            state.updatedAt = Date.now();
+            return sendJson(res, state);
+          }
+
+
           if (url === '/api/queue/reset' && method === 'POST') {
             state = {
               counters: Array.from({ length: 8 }, (_, i) => ({ id: i + 1, currentNumber: 0, isActive: false, servedCount: 0 })),
@@ -104,7 +133,44 @@ function devApiPlugin() {
 }
 
 export default defineConfig({
-  plugins: [react(), devApiPlugin()],
+  plugins: [
+    react(),
+    VitePWA({
+      registerType: 'autoUpdate',
+      includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'pwa-192x192.png', 'pwa-512x512.png'],
+      manifest: {
+        name: 'Queue Management System',
+        short_name: 'QMS',
+        description: 'Modern Queue Management System',
+        theme_color: '#1e1b4b',
+        background_color: '#1e1b4b',
+        display: 'standalone',
+        icons: [
+          {
+            src: 'pwa-192x192.png',
+            sizes: '192x192',
+            type: 'image/png'
+          },
+          {
+            src: 'pwa-512x512.png',
+            sizes: '512x512',
+            type: 'image/png'
+          },
+          {
+            src: 'pwa-512x512.png',
+            sizes: '512x512',
+            type: 'image/png',
+            purpose: 'any maskable'
+          }
+        ]
+      },
+      devOptions: {
+        enabled: true
+      }
+    }),
+
+    devApiPlugin()
+  ],
   server: {
     host: '0.0.0.0',
     port: 3000,

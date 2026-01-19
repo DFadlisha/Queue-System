@@ -8,6 +8,7 @@ export default function CounterPhone() {
   const [currentNumber, setCurrentNumber] = useState(0);
   const [connected, setConnected] = useState(true);
   const [isActive, setIsActive] = useState(false);
+  const [counters, setCounters] = useState([]);
   const unsubRef = useRef(null);
 
   useEffect(() => {
@@ -23,15 +24,16 @@ export default function CounterPhone() {
             setIsActive(!!counter.isActive);
           }
         }
+        setCounters(counters);
         setConnected(true);
       });
       unsubRef.current = unsub;
     })();
-    return () => { try { unsubRef.current && unsubRef.current(); } catch {}; mounted = false; };
+    return () => { try { unsubRef.current && unsubRef.current(); } catch { }; mounted = false; };
   }, [selectedCounter]);
 
   const callNext = () => {
-  apiCallNext(selectedCounter);
+    apiCallNext(selectedCounter);
 
     if (navigator.vibrate) {
       navigator.vibrate(200);
@@ -39,7 +41,7 @@ export default function CounterPhone() {
   };
 
   const clearCounter = () => {
-  apiClearCounter(selectedCounter);
+    apiClearCounter(selectedCounter);
   };
 
   const toggleStatus = () => {
@@ -48,15 +50,14 @@ export default function CounterPhone() {
 
   if (!selectedCounter) {
     return (
-    <div className="min-h-screen bg-gradient-to-br from-cyan-700 to-cyan-900 p-6">
+      <div className="min-h-screen bg-gradient-to-br from-cyan-700 to-cyan-900 p-6">
         <div className="max-w-2xl mx-auto">
           <div className="flex justify-between items-center mb-4">
             <Link to="/" className="bg-white bg-opacity-20 text-white p-3 rounded-lg hover:bg-opacity-30 transition">
               <Home size={24} />
             </Link>
-            <div className={`p-3 rounded-lg flex items-center gap-2 ${
-              connected ? 'bg-green-500' : 'bg-red-500'
-            } text-white font-semibold`}>
+            <div className={`p-3 rounded-lg flex items-center gap-2 ${connected ? 'bg-green-500' : 'bg-red-500'
+              } text-white font-semibold`}>
               {connected ? <Wifi size={20} /> : <WifiOff size={20} />}
               {connected ? 'Connected' : 'Disconnected'}
             </div>
@@ -73,20 +74,25 @@ export default function CounterPhone() {
               🔒 Staff Only Access
             </h2>
             <div className="grid grid-cols-2 gap-4">
-              {[1, 2, 3, 4, 5, 6, 7, 8].map((num) => (
-                <button
-                  key={num}
-                  onClick={() => setSelectedCounter(num)}
-                  disabled={!connected}
-                  className={`py-8 px-6 rounded-xl transition text-3xl font-bold shadow-lg active:scale-95 ${
-                    connected
-                      ? 'bg-gradient-to-br from-cyan-600 to-cyan-800 text-white hover:from-cyan-700 hover:to-cyan-900'
-                      : 'bg-gray-400 text-gray-600 cursor-not-allowed'
-                  }`}
-                >
-                  {num}
-                </button>
-              ))}
+              {counters.length > 0 ? (
+                counters.map((counter) => (
+                  <button
+                    key={counter.id}
+                    onClick={() => setSelectedCounter(counter.id)}
+                    disabled={!connected}
+                    className={`py-8 px-6 rounded-xl transition text-3xl font-bold shadow-lg active:scale-95 ${connected
+                        ? 'bg-gradient-to-br from-cyan-600 to-cyan-800 text-white hover:from-cyan-700 hover:to-cyan-900'
+                        : 'bg-gray-400 text-gray-600 cursor-not-allowed'
+                      }`}
+                  >
+                    {counter.id}
+                  </button>
+                ))
+              ) : (
+                <div className="col-span-2 text-center py-8 text-gray-500 italic">
+                  Loading counters...
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -95,7 +101,7 @@ export default function CounterPhone() {
   }
 
   return (
-  <div className="min-h-screen bg-gradient-to-br from-teal-700 to-teal-900 p-6">
+    <div className="min-h-screen bg-gradient-to-br from-teal-700 to-teal-900 p-6">
       <div className="max-w-2xl mx-auto">
         <div className="flex justify-between items-center mb-4">
           <button
@@ -104,9 +110,8 @@ export default function CounterPhone() {
           >
             ← Change Counter
           </button>
-          <div className={`p-3 rounded-lg flex items-center gap-2 ${
-            connected ? 'bg-teal-700' : 'bg-rose-500'
-          } text-white font-semibold`}>
+          <div className={`p-3 rounded-lg flex items-center gap-2 ${connected ? 'bg-teal-700' : 'bg-rose-500'
+            } text-white font-semibold`}>
             {connected ? <Wifi size={20} /> : <WifiOff size={20} />}
             {connected ? 'Connected' : 'Disconnected'}
           </div>
@@ -122,14 +127,12 @@ export default function CounterPhone() {
           <div className="p-12">
             <div className="text-center mb-10">
               <p className="text-gray-600 text-3xl mb-4">Currently Serving</p>
-              <div className={`rounded-2xl p-12 ${
-                currentNumber > 0 
-                  ? 'bg-gradient-to-br from-teal-500 to-teal-700' 
+              <div className={`rounded-2xl p-12 ${currentNumber > 0
+                  ? 'bg-gradient-to-br from-teal-500 to-teal-700'
                   : 'bg-gray-200'
-              }`}>
-                <div className={`text-9xl font-bold ${
-                  currentNumber > 0 ? 'text-white' : 'text-gray-400'
                 }`}>
+                <div className={`text-9xl font-bold ${currentNumber > 0 ? 'text-white' : 'text-gray-400'
+                  }`}>
                   {currentNumber || '-'}
                 </div>
               </div>
@@ -139,24 +142,22 @@ export default function CounterPhone() {
               <button
                 onClick={callNext}
                 disabled={!connected}
-                className={`w-full py-8 rounded-2xl transition text-3xl font-bold shadow-xl flex items-center justify-center gap-3 active:scale-95 ${
-                  connected
+                className={`w-full py-8 rounded-2xl transition text-3xl font-bold shadow-xl flex items-center justify-center gap-3 active:scale-95 ${connected
                     ? 'bg-gradient-to-r from-teal-500 to-teal-600 text-white hover:from-teal-600 hover:to-teal-700'
                     : 'bg-gray-400 text-gray-600 cursor-not-allowed'
-                }`}
+                  }`}
               >
                 <PhoneCall size={36} />
                 Call Next Customer
               </button>
-              
+
               <button
                 onClick={clearCounter}
                 disabled={!connected}
-                className={`w-full py-6 rounded-2xl transition text-2xl font-semibold flex items-center justify-center gap-3 active:scale-95 ${
-                  connected
+                className={`w-full py-6 rounded-2xl transition text-2xl font-semibold flex items-center justify-center gap-3 active:scale-95 ${connected
                     ? 'bg-slate-500 text-white hover:bg-slate-600'
                     : 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                }`}
+                  }`}
               >
                 <X size={32} />
                 Clear Counter
@@ -165,11 +166,10 @@ export default function CounterPhone() {
               <button
                 onClick={toggleStatus}
                 disabled={!connected}
-                className={`w-full py-6 rounded-2xl transition text-2xl font-semibold flex items-center justify-center gap-3 active:scale-95 ${
-                  connected
+                className={`w-full py-6 rounded-2xl transition text-2xl font-semibold flex items-center justify-center gap-3 active:scale-95 ${connected
                     ? (isActive ? 'bg-teal-500 text-white hover:bg-teal-600' : 'bg-rose-500 text-white hover:bg-rose-600')
                     : 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                }`}
+                  }`}
               >
                 {isActive ? <ToggleRight size={32} /> : <ToggleLeft size={32} />}
                 {isActive ? 'Mark Available' : 'Mark Occupied'}
@@ -191,8 +191,8 @@ export default function CounterPhone() {
 
             <div className="mt-6 bg-yellow-50 border-2 border-yellow-300 rounded-xl p-4">
               <p className="text-yellow-800 font-semibold text-center">
-                  💡 Calling a customer will update counter status on all displays
-                </p>
+                💡 Calling a customer will update counter status on all displays
+              </p>
             </div>
           </div>
         </div>

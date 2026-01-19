@@ -1,12 +1,13 @@
 import { useState, useEffect, useRef } from 'react';
 import { Settings, Home, RefreshCw, RefreshCcw, Trash2, Activity, PhoneCall } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import { subscribeState, callNext as apiCallNext, clearCounter as apiClearCounter, resetSystem as apiResetSystem } from '../utils/api';
+import { subscribeState, callNext as apiCallNext, clearCounter as apiClearCounter, resetSystem as apiResetSystem, updateCounters as apiUpdateCounters } from '../utils/api';
 
 export default function Admin() {
   const [connected, setConnected] = useState(true);
   const [counters, setCounters] = useState([]);
   const [showActiveOnly, setShowActiveOnly] = useState(false);
+  const [newCounterCount, setNewCounterCount] = useState('');
   const unsubRef = useRef(null);
 
   const stats = {
@@ -33,7 +34,7 @@ export default function Admin() {
     })();
     return () => {
       mounted = false;
-      try { unsubRef.current && unsubRef.current(); } catch {}
+      try { unsubRef.current && unsubRef.current(); } catch { }
     };
   }, []);
 
@@ -71,13 +72,13 @@ export default function Admin() {
 
   const resetSystem = () => {
     if (confirm('⚠️ Reset entire queue system? This will:\n- Clear all counters\n- Reset queue numbers to 1\n- Clear all data\n\nThis action cannot be undone.')) {
-  apiResetSystem().then(() => alert('✅ System has been reset successfully!'));
+      apiResetSystem().then(() => alert('✅ System has been reset successfully!'));
     }
   };
 
   const clearCounter = (counterId) => {
     if (confirm(`Clear Counter ${counterId}?`)) {
-  apiClearCounter(counterId);
+      apiClearCounter(counterId);
     }
   };
 
@@ -85,14 +86,34 @@ export default function Admin() {
 
   const clearAllCounters = () => {
     if (confirm('Clear ALL counters?')) {
-  counters.forEach(c => apiClearCounter(c.id));
+      counters.forEach(c => apiClearCounter(c.id));
+    }
+  };
+
+  const handleUpdateCounters = async (e) => {
+    e.preventDefault();
+    const count = parseInt(newCounterCount, 10);
+    if (isNaN(count) || count < 1) {
+      alert('Please enter a valid number of counters (at least 1).');
+      return;
+    }
+
+    if (confirm(`Change total counters to ${count}?`)) {
+      try {
+        await apiUpdateCounters(count);
+        setNewCounterCount('');
+        alert('✅ Counters updated successfully!');
+      } catch (err) {
+        alert('❌ Failed to update counters.');
+        console.error(err);
+      }
     }
   };
 
   // Voice announcement removed — no client-side speech
 
   return (
-  <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-cyan-950 p-6">
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-cyan-950 p-6">
       <div className="max-w-7xl mx-auto">
         {/* Header */}
         <div className="flex justify-between items-center mb-8">
@@ -108,10 +129,9 @@ export default function Admin() {
               <p className="text-cyan-200 text-xl mt-2">System Management & Monitoring</p>
             </div>
           </div>
-          
-          <div className={`p-4 rounded-lg flex items-center gap-2 ${
-            connected ? 'bg-green-500' : 'bg-red-500'
-          } text-white font-semibold`}>
+
+          <div className={`p-4 rounded-lg flex items-center gap-2 ${connected ? 'bg-green-500' : 'bg-red-500'
+            } text-white font-semibold`}>
             <span className="text-lg">{connected ? 'Connected' : 'Disconnected'}</span>
           </div>
         </div>
@@ -125,7 +145,7 @@ export default function Admin() {
             </div>
             <p className="text-4xl font-bold text-blue-600">{stats.totalServed}</p>
           </div>
-          
+
           <div className="bg-white rounded-xl p-6 shadow-lg">
             <div className="flex items-center justify-between mb-2">
               <h3 className="text-gray-600 font-semibold">Active Counters</h3>
@@ -133,7 +153,7 @@ export default function Admin() {
             </div>
             <p className="text-4xl font-bold text-green-600">{stats.activeCounters}</p>
           </div>
-          
+
           <div className="bg-white rounded-xl p-6 shadow-lg">
             <div className="flex items-center justify-between mb-2">
               <h3 className="text-gray-600 font-semibold">Last Served</h3>
@@ -141,6 +161,43 @@ export default function Admin() {
             </div>
             <p className="text-4xl font-bold text-purple-600">{stats.servedToday || '-'}</p>
           </div>
+        </div>
+
+        {/* System Configuration */}
+        <div className="bg-white rounded-xl p-6 shadow-lg mb-8">
+          <div className="flex items-center gap-3 mb-6">
+            <Settings className="text-cyan-600" size={32} />
+            <h2 className="text-2xl font-bold text-gray-800">System Configuration</h2>
+          </div>
+          <form onSubmit={handleUpdateCounters} className="flex gap-4 items-end">
+            <div className="flex-1 max-w-xs">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Number of Counters
+              </label>
+              <input
+                type="number"
+                min="1"
+                max="50"
+                value={newCounterCount}
+                onChange={(e) => setNewCounterCount(e.target.value)}
+                placeholder={`Current: ${counters.length}`}
+                className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 outline-none transition"
+              />
+            </div>
+            <button
+              type="submit"
+              disabled={!connected || !newCounterCount}
+              className={`px-8 py-3 rounded-lg font-semibold text-white transition h-[50px] ${connected && newCounterCount
+                  ? 'bg-cyan-600 hover:bg-cyan-700'
+                  : 'bg-gray-300 cursor-not-allowed'
+                }`}
+            >
+              Update Counter Count
+            </button>
+          </form>
+          <p className="mt-4 text-sm text-gray-500 italic">
+            Note: Increasing count adds new counters. Decreasing count removes counters from the end.
+          </p>
         </div>
 
         {/* Admin access: no PIN required in offline mode */}
@@ -152,16 +209,15 @@ export default function Admin() {
             <button
               onClick={resetSystem}
               disabled={!connected}
-              className={`flex items-center justify-center gap-3 py-4 rounded-lg font-semibold text-lg transition ${
-                connected
+              className={`flex items-center justify-center gap-3 py-4 rounded-lg font-semibold text-lg transition ${connected
                   ? 'bg-red-500 text-white hover:bg-red-600'
                   : 'bg-gray-300 text-gray-500 cursor-not-allowed'
-              }`}
+                }`}
             >
               <Trash2 size={24} />
               Reset System
             </button>
-            
+
             <button
               onClick={() => window.location.reload()}
               className="flex items-center justify-center gap-3 bg-cyan-600 text-white py-4 rounded-lg font-semibold text-lg hover:bg-cyan-700 transition"
@@ -173,11 +229,10 @@ export default function Admin() {
             <button
               onClick={clearAllCounters}
               disabled={!connected}
-              className={`flex items-center justify-center gap-3 py-4 rounded-lg font-semibold text-lg transition ${
-                connected
+              className={`flex items-center justify-center gap-3 py-4 rounded-lg font-semibold text-lg transition ${connected
                   ? 'bg-amber-500 text-white hover:bg-amber-600'
                   : 'bg-gray-300 text-gray-500 cursor-not-allowed'
-              }`}
+                }`}
             >
               <Trash2 size={24} />
               Clear All Counters
@@ -274,9 +329,8 @@ export default function Admin() {
                   <button
                     onClick={() => callNext(counter.id)}
                     disabled={!connected}
-                    className={`w-full py-2 rounded-lg transition text-sm font-semibold flex items-center justify-center gap-2 ${
-                      connected ? 'bg-teal-600 text-white hover:bg-teal-700' : 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                    }`}
+                    className={`w-full py-2 rounded-lg transition text-sm font-semibold flex items-center justify-center gap-2 ${connected ? 'bg-teal-600 text-white hover:bg-teal-700' : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                      }`}
                   >
                     <PhoneCall size={18} /> Call Next
                   </button>

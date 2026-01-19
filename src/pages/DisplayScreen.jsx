@@ -5,13 +5,7 @@ import announceTimes, { unlockSpeech, isSpeechAvailable, beepFallback, speechSel
 import { subscribeState } from '../utils/api';
 
 export default function DisplayScreen() {
-  const [counters, setCounters] = useState(
-    Array.from({ length: 8 }, (_, i) => ({
-      id: i + 1,
-      currentNumber: 0,
-      isActive: false
-    }))
-  );
+  const [counters, setCounters] = useState([]);
   const [connected, setConnected] = useState(false);
   const [lastError, setLastError] = useState(null);
   const [lastAttemptTs, setLastAttemptTs] = useState(null);
@@ -22,7 +16,7 @@ export default function DisplayScreen() {
   const [tvMode, setTvMode] = useState(() => {
     try { return localStorage.getItem('tvMode') === '1'; } catch { return false; }
   });
-  
+
   const prevCountersRef = useRef(counters);
   const unsubRef = useRef(null);
   // Track last NUMBER_CALLED event timestamp so we announce each call only once (3 repeats inside safeAnnounce)
@@ -30,7 +24,7 @@ export default function DisplayScreen() {
   // Track in-progress announcement & recent messages to suppress duplicates
   const isAnnouncingRef = useRef(false);
   const lastMsgRef = useRef({ text: '', ts: 0 });
-  
+
 
   useEffect(() => {
     // subscribe to realtime state
@@ -86,9 +80,9 @@ export default function DisplayScreen() {
         const ok = await speechSelfTest();
         if (ok) {
           setSoundReady(true);
-          try { localStorage.setItem('soundReady', '1'); } catch {}
+          try { localStorage.setItem('soundReady', '1'); } catch { }
         }
-      } catch {}
+      } catch { }
       window.removeEventListener('click', unlock);
       window.removeEventListener('touchstart', unlock);
       window.removeEventListener('pointerdown', unlock);
@@ -99,11 +93,11 @@ export default function DisplayScreen() {
     window.addEventListener('pointerdown', unlock, { passive: true });
     window.addEventListener('keydown', unlock);
     return () => {
-      try { unsubRef.current && unsubRef.current(); } catch {}
+      try { unsubRef.current && unsubRef.current(); } catch { }
       window.removeEventListener('click', unlock);
       window.removeEventListener('touchstart', unlock);
-  window.removeEventListener('pointerdown', unlock);
-  window.removeEventListener('keydown', unlock);
+      window.removeEventListener('pointerdown', unlock);
+      window.removeEventListener('keydown', unlock);
     };
   }, []);
 
@@ -120,7 +114,7 @@ export default function DisplayScreen() {
   const toggleTvMode = async () => {
     const next = !tvMode;
     setTvMode(next);
-    try { localStorage.setItem('tvMode', next ? '1' : '0'); } catch {}
+    try { localStorage.setItem('tvMode', next ? '1' : '0'); } catch { }
     // try fullscreen for TV mode
     try {
       if (next) {
@@ -130,7 +124,7 @@ export default function DisplayScreen() {
       } else if (document.fullscreenElement) {
         await document.exitFullscreen();
       }
-    } catch {}
+    } catch { }
   };
 
   // Speak or beep fallback depending on availability/unlock state
@@ -147,7 +141,7 @@ export default function DisplayScreen() {
     if (!speechSupported || !soundReady) {
       // beep a few times as fallback
       for (let i = 0; i < Math.max(1, times); i++) {
-        try { await beepFallback(200, 880, 0.4); } catch {}
+        try { await beepFallback(200, 880, 0.4); } catch { }
         await new Promise(r => setTimeout(r, 200));
       }
       isAnnouncingRef.current = false;
@@ -165,32 +159,31 @@ export default function DisplayScreen() {
       const ok = await speechSelfTest();
       if (ok) {
         setSoundReady(true);
-        try { localStorage.setItem('soundReady', '1'); } catch {}
+        try { localStorage.setItem('soundReady', '1'); } catch { }
         await announceTimes('Announcements enabled', 1, { volume: 1 });
       } else {
         // if voice still blocked, give a beep to confirm some audio path works
         await beepFallback(200, 880, 0.4);
       }
-    } catch {}
+    } catch { }
   };
 
   const handleTestVoice = async () => {
     try {
       await announceTimes('Test: voice announcement working', 1, { volume: 1 });
-    } catch {}
+    } catch { }
   };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-cyan-950 p-6 relative">
-  <div className="absolute top-4 left-4 z-20">
+      <div className="absolute top-4 left-4 z-20">
         <Link to="/" className="bg-white bg-opacity-20 text-white p-3 rounded-lg hover:bg-opacity-30 transition block">
           <Home size={24} />
         </Link>
       </div>
 
-      <div className={`absolute top-4 right-4 p-3 rounded-lg flex items-center gap-2 ${
-        connected ? 'bg-teal-500' : 'bg-rose-500'
-      } text-white font-semibold z-20`}>
+      <div className={`absolute top-4 right-4 p-3 rounded-lg flex items-center gap-2 ${connected ? 'bg-teal-500' : 'bg-rose-500'
+        } text-white font-semibold z-20`}>
         {connected ? <Wifi size={20} /> : <WifiOff size={20} />}
         {connected ? 'Connected' : 'Disconnected'}
       </div>
@@ -214,9 +207,9 @@ export default function DisplayScreen() {
       )}
 
       {/* TV Mode toggle */}
-  <div className="absolute top-4 right-40 p-3 rounded-lg bg-black/40 text-white font-semibold z-20 cursor-pointer select-none"
-           onClick={toggleTvMode}
-           title="Toggle TV Mode (fullscreen). Shortcut: T">
+      <div className="absolute top-4 right-40 p-3 rounded-lg bg-black/40 text-white font-semibold z-20 cursor-pointer select-none"
+        onClick={toggleTvMode}
+        title="Toggle TV Mode (fullscreen). Shortcut: T">
         {tvMode ? 'TV Mode: On' : 'TV Mode: Off'}
       </div>
 
@@ -258,8 +251,8 @@ export default function DisplayScreen() {
           <p className="text-cyan-200 text-2xl">Please watch for your number</p>
         </div>
 
-        {/* Even grid layout: 4 columns x 2 rows for 8 counters */}
-        <div className={`grid gap-6 ${tvMode ? 'gap-5' : 'gap-6'} grid-cols-2 md:grid-cols-4`}>
+        {/* Dynamic grid layout */}
+        <div className={`grid gap-6 ${tvMode ? 'gap-5' : 'gap-6'} grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5`}>
           {counters.map((counter) => {
             const isOccupied = counter.isActive && counter.currentNumber > 0;
             return (
@@ -276,7 +269,7 @@ export default function DisplayScreen() {
           })}
         </div>
 
-  {/* Footer note removed: voice announcements are enabled */}
+        {/* Footer note removed: voice announcements are enabled */}
       </div>
     </div>
   );

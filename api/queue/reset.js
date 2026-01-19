@@ -25,17 +25,31 @@ async function parseBody(req) {
   });
 }
 
-const initialState = {
-  counters: Array.from({ length: 8 }, (_, i) => ({ id: i + 1, currentNumber: 0, isActive: false, servedCount: 0 })),
-  lastEvent: { type: 'SYSTEM_RESET', ts: Date.now() },
-  updatedAt: Date.now(),
-};
-
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
   // Drain body (ignored)
   await parseBody(req);
-  initialState.updatedAt = Date.now();
-  try { await redis.set('queue:state', initialState); } catch (e) { console.error('Redis set error:', e); }
-  res.status(200).json(initialState);
+
+  let currentCount = 8;
+  try {
+    const currentState = await redis.get('queue:state');
+    if (currentState && currentState.counters) {
+      currentCount = currentState.counters.length;
+    }
+  } catch (e) {
+    console.error('Redis get error during reset:', e);
+  }
+
+  const newState = {
+    counters: Array.from({ length: currentCount }, (_, i) => ({ id: i + 1, currentNumber: 0, isActive: false, servedCount: 0 })),
+    lastEvent: { type: 'SYSTEM_RESET', ts: Date.now() },
+    updatedAt: Date.now(),
+  };
+
+  try {
+    await redis.set('queue:state', newState);
+  } catch (e) {
+    console.error('Redis set error:', e);
+  }
+  res.status(200).json(newState);
 }
